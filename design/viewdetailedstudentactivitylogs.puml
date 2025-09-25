@@ -1,0 +1,132 @@
+@startuml
+' Class Diagram for View Detailed Student Activity Logs Feature (giống dạng View List Role, bỏ Entities, thêm Repositories)
+
+title View Detailed Student Activity Logs Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class LogController <<Controller>> {
+        - _log: ILog
+        - _httpContextAccessor: IHttpContextAccessor
+        + GetExamLogList(filter: ExamLogFilterVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface ILog <<Interface>> {
+        + GetListExamLog(filter: ExamLogFilterVM): Task<(string, SearchResult?)>
+    }
+    class Log <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        - _s3Service: IAmazonS3Service
+        - _httpContextAccessor: IHttpContextAccessor
+        + GetListExamLog(filter: ExamLogFilterVM): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamLogRepository {
+        + GetByStudentExamId(studentExamId: string)
+        + GetById(examLogId: string)
+    }
+    interface IUserRepository {
+        + GetById(userId: string)
+    }
+    interface IStudentExamRepository {
+        + GetById(studentExamId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class ExamLogFilterVM <<DTO>> {
+        + StudentExamId: string
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class SearchRequestVM <<Base DTO>> {
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class ExamLogListVM <<DTO>> {
+        + ExamLogId: string
+        + UserCode: string
+        + FullName: string
+        + ActionType: string
+        + Description: string
+        + Metadata: string
+        + LogType: string
+        + CreatedAt: DateTime
+    }
+    class SearchResult <<DTO>> {
+        + Result: object
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+}
+
+package "External Services" {
+    interface IAmazonS3Service <<Interface>> {
+        + UploadFileAsync(file: IFormFile, bucketName: string): Task<string>
+        + DeleteFileAsync(fileName: string, bucketName: string): Task<bool>
+    }
+}
+
+' Relationships
+LogController ..> ILog : <<uses>>
+LogController ..> ExamLogFilterVM : <<uses>>
+LogController ..> SearchResult : <<uses>>
+
+ILog <|.. Log
+Log ..> IExamLogRepository : <<uses>>
+Log ..> IUserRepository : <<uses>>
+Log ..> IStudentExamRepository : <<uses>>
+Log ..> ExamLogFilterVM : <<uses>>
+Log ..> SearchResult : <<uses>>
+Log ..> ExamLogListVM : <<uses>>
+Log ..> IAmazonS3Service : <<uses>>
+
+ExamLogFilterVM --|> SearchRequestVM : <<inherits>>
+Log ..> SearchRequestVM : <<uses>>
+
+SearchResult o-- ExamLogListVM : <<contains>>
+
+@enduml

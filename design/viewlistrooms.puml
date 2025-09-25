@@ -1,0 +1,121 @@
+@startuml
+'View List Rooms Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View List Rooms Class Diagram
+
+package "Controllers" {
+    class RoomController <<Controller>> {
+        - _roomService: IRoomService
+        + GetAllRooms(search: SearchRoomVM)
+    }
+}
+
+package "Services" {
+    interface IRoomService <<Interface>> {
+        + GetAllRooms(search: SearchRoomVM)
+    }
+    class RoomService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetAllRooms(search: SearchRoomVM)
+    }
+}
+
+package "Repositories" {
+    interface IRoomRepository {
+        + GetRooms(search: SearchRoomVM)
+        + GetRoomById(roomId: string)
+        + CountRooms(search: SearchRoomVM)
+    }
+    interface IClassRepository {
+        + GetClassById(classId: string)
+    }
+    interface ISubjectRepository {
+        + GetSubjectById(subjectId: string)
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class SearchRoomVM <<DTO>> {
+        + ClassId
+        + SubjectId
+        + IsActive
+        + PageSize
+        + CurrentPage
+        + TextSearch
+    }
+    class SearchResult <<DTO>> {
+        + Result
+        + TotalPage
+        + PageSize
+        + CurrentPage
+        + Total
+    }
+    class RoomVM <<DTO>> {
+        + RoomId
+        + RoomCode
+        + Capacity
+        + RoomDescription
+        + IsRoomActive
+        + RoomCreatedAt
+        + RoomUpdatedAt
+        + ClassId
+        + ClassCode
+        + IsClassActive
+        + ClassCreatedBy
+        + ClassStartDate
+        + ClassEndDate
+        + SubjectId
+        + SubjectName
+        + SubjectCode
+        + SubjectContent
+        + SubjectDescription
+        + SubjectStatus
+        + TotalUsers
+        + RoomTeachers
+    }
+}
+
+' Relationships
+RoomController ..> IRoomService : <<uses>>
+RoomController ..> SearchRoomVM : <<uses>>
+IRoomService <|.. RoomService : <<implements>>
+RoomService ..> IRoomRepository : <<uses>>
+RoomService ..> IClassRepository : <<uses>>
+RoomService ..> ISubjectRepository : <<uses>>
+RoomService ..> IUserRepository : <<uses>>
+RoomService ..> SearchResult : <<returns>>
+SearchResult o-- RoomVM : <<contains>>
+
+@enduml

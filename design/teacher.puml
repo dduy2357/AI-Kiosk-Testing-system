@@ -1,0 +1,112 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 80
+skinparam ranksep 100
+
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor darkblue
+  FontColor darkblue
+  FontSize 12
+}
+
+
+skinparam usecase {
+  BackgroundColor yellow
+  BorderColor darkgreen
+  FontColor darkgreen
+  FontSize 10
+}
+
+
+skinparam rectangle {
+  BackgroundColor lightyellow
+  BorderColor orange
+  FontColor darkorange
+  FontSize 14
+  FontStyle bold
+}
+
+
+skinparam arrow {
+  Color darkblue
+  FontColor darkblue
+}
+together {
+  actor User as "User"
+  actor Lecturer as "Lecturer"
+}
+
+rectangle "AKTs System" {
+    usecase "View Question Bank List" as UC1
+    usecase "View Question Bank Detail" as UC2
+    usecase "Add Question Bank" as UC3
+    usecase "Edit Question Bank" as UC4
+    usecase "Deactive/Active Question Bank" as UC5 
+    usecase "Export Question Bank" as UC26
+    usecase "Import Question List" as UC27
+    usecase "Add Question" as UC8
+    usecase "Edit Question" as UC9
+    usecase "Activate/Deactivate Question" as UC10
+    usecase "Share Question Bank" as UC11
+    usecase "View Exam List" as UC12
+    usecase "Add Exam" as UC13
+    usecase "Update Exam" as UC14
+    usecase "Deactivate/Activate Exam" as UC15
+    usecase "Publish Exam" as UC16
+    usecase "View Exam Answer" as UC17
+    usecase "View Result Report" as UC18
+    usecase "Export Result Report" as UC19
+    usecase "View Room List" as UC21
+    usecase "View Room Students" as UC22
+    usecase "Remove Student from Class" as UC23
+    usecase "Add Student to Room" as UC24
+    usecase "Grade Exam" as UC25
+    usecase "Export Students in Class" as UC29
+    usecase "Import Students in Class" as UC30
+    usecase "Change Status Exam" as UC31
+    usecase "Assign OTP" as UC32
+    usecase "View OTP" as UC33
+    usecase "View List Exam Supervisors" as UC34
+    usecase "Assign Exam Supervisors" as UC35
+    usecase "Remove Exam Supervisors" as UC36
+
+    
+    Lecturer -- UC1
+    Lecturer --> UC12
+    Lecturer --> UC21
+
+User <|-d- Lecturer 
+    UC2 .u.> UC1 : <<extend>>
+    UC3 .u.> UC1 : <<extend>>
+    UC4 .u.> UC1 : <<extend>>
+    UC5 .u.> UC1 : <<extend>>
+    UC11 .u.> UC1 : <<extend>>
+    UC8 .u.> UC2 : <<extend>>
+    UC9 .u.> UC2 : <<extend>>
+    UC10 .u.> UC2 : <<extend>>
+    UC13 .u.> UC12 : <<extend>>
+    UC14 .u.> UC12 : <<extend>>
+    UC15 .u.> UC12 : <<extend>>
+    UC16 .u.> UC12 : <<extend>>
+    UC17 .u.> UC12 : <<extend>>
+    UC18 .u.> UC12 : <<extend>>
+    UC19 .u.> UC12 : <<extend>>
+    UC22 .u.> UC21 : <<extend>>
+    UC23 .u.> UC22 : <<extend>>
+    UC24 .u.> UC22 : <<extend>>
+    UC25 .u.> UC17 : <<extend>>
+    UC26 .u.> UC1 : <<extend>>
+    UC27 .u.> UC2 : <<extend>>
+    UC29 .u.> UC22 : <<extend>>
+    UC30 .u.> UC22 : <<extend>>
+    UC31 .u.> UC12 : <<extend>>
+    UC32 .u.> UC12 : <<extend>>
+    UC33 .u.> UC12 : <<extend>>
+    UC34 .u.> UC12 : <<extend>>
+    UC35 .u.> UC34 : <<extend>>
+    UC36 .u.> UC34 : <<extend>>
+}
+
+@enduml

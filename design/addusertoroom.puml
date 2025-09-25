@@ -1,0 +1,116 @@
+@startuml
+' Simplified Add User To Room Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title Add User To Room Class Diagram
+
+package "Controllers" {
+    class RoomUserController <<Controller>> {
+        - _roomUserService: IRoomUserService
+        + AddUserToRoom(roomId: string, userIdsOrCodes: List<string>): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IRoomUserService <<Interface>> {
+        + AddStudentsToRoom(roomId: string, userIdsOrCodes: List<string>, usertoken: string): Task<(string, List<string>, List<string>, List<string>)>
+    }
+    class RoomUserService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        - _logger: ILog
+        + AddStudentsToRoom(roomId: string, userIdsOrCodes: List<string>, usertoken: string): Task<(string, List<string>, List<string>, List<string>)>
+    }
+    interface ILog <<Interface>> {
+        + WriteActivity(log: AddUserLogVM): Task<string>
+    }
+}
+
+package "RoomUserRepository" {
+    interface IRoomUserRepository {
+        + AddUsersToRoom(roomId: string, userIds: List<string>)
+    }
+}
+package "RoomRepository" {
+    interface IRoomRepository {
+        + GetRoomById(roomId: string)
+    }
+}
+package "UserRepository" {
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class AddUserLogVM <<DTO>> {
+        + ActionType: string
+        + Description: string
+        + ObjectId: string
+        + UserId: string
+        + Metadata: string
+        + Status: int
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Student
+        Lecture
+        Admin
+    }
+    enum ActiveStatus {
+        Inactive
+        Active
+    }
+    enum LogStatus {
+        Success
+        Failed
+    }
+}
+
+' Relationships
+RoomUserController ..> IRoomUserService : <<uses>>
+RoomUserController ..> AddUserLogVM : <<logs>>
+IRoomUserService <|.. RoomUserService : <<implements>>
+RoomUserService ..> IRoomUserRepository : <<uses>>
+RoomUserService ..> IRoomRepository : <<uses>>
+RoomUserService ..> IUserRepository : <<uses>>
+RoomUserService ..> ILog : <<logs>>
+RoomUserService ..> AddUserLogVM : <<logs>>
+AddUserLogVM ..> LogStatus : <<uses>>
+
+@enduml

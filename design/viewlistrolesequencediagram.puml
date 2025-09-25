@@ -1,0 +1,101 @@
+@startuml
+title View List Role Sequence Diagram 
+
+actor "User" as Client
+boundary ":NavigationUI" as UI <<boundary>>
+control "AuthorizeController" as Controller <<controller>>
+participant ":AuthorizeService" as Service <<service>>
+
+entity "RoleRepository" as RoleRepo <<repository>>
+entity "RolePermissionRepository" as RolePermRepo <<repository>>
+entity "PermissionRepository" as PermissionRepo <<repository>>
+entity "PermissionCategoryRepository" as PermissionCategoryRepo <<repository>>
+
+database "Database" as DB
+
+== View List Role ==
+
+Client -> UI: Request view roles
+activate UI
+UI -> Controller: GET /get-all-roles-permissions (RoleSearchVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetAllRolesPermissions(search)
+  activate Service
+
+  '--- (Optional) quick auth check ---
+  Service -> DB: SELECT 1 FROM UserRoles WHERE UserId=@uid AND CanViewRoles=1;
+  DB --> Service: row | null
+  alt Not allowed
+    Service --> Controller: "You do not have permission..."
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    '--- Count & page roles via RoleRepository ---
+    Service -> RoleRepo: CountRoles(search)
+    activate RoleRepo
+    RoleRepo -> DB: SELECT COUNT(*) AS Total FROM Roles WHERE (@roleId IS NULL OR RoleId=@roleId) AND (@q IS NULL OR RoleName LIKE '%'||@q||'%');
+    DB --> RoleRepo: Total
+    RoleRepo --> Service: Total
+    deactivate RoleRepo
+
+    Service -> RoleRepo: GetRoles(search)
+    activate RoleRepo
+    RoleRepo -> DB: SELECT RoleId, RoleName FROM Roles WHERE (@roleId IS NULL OR RoleId=@roleId) AND (@q IS NULL OR RoleName LIKE '%'||@q||'%') ORDER BY RoleName ASC LIMIT @PageSize OFFSET @Offset;
+    DB --> RoleRepo: rows (roles)
+    RoleRepo --> Service: roles
+    deactivate RoleRepo
+
+    alt No roles found
+      Service --> Controller: "No roles found."
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show no roles
+      deactivate UI
+    else Roles found
+      '--- Load role-permissions ---
+      Service -> RolePermRepo: GetRolePermissions(roleIds)
+      activate RolePermRepo
+      RolePermRepo -> DB: SELECT RoleId, PermissionId FROM RolePermissions WHERE RoleId IN (@roleIds);
+      DB --> RolePermRepo: rows (role-perms)
+      RolePermRepo --> Service: role-perms
+      deactivate RolePermRepo
+
+      '--- Load permissions (ids from role-perms) ---
+      Service -> PermissionRepo: GetPermissionsByIds(permissionIds)
+      activate PermissionRepo
+      PermissionRepo -> DB: SELECT PermissionId, CategoryId FROM Permissions WHERE PermissionId IN (@permissionIds);
+      DB --> PermissionRepo: rows (perms)
+      PermissionRepo --> Service: perms
+      deactivate PermissionRepo
+
+      '--- Load categories (ids from perms) ---
+      Service -> PermissionCategoryRepo: GetCategoriesById(categoryIds)
+      activate PermissionCategoryRepo
+      PermissionCategoryRepo -> DB: SELECT CategoryId, CategoryName FROM PermissionCategories WHERE CategoryId IN (@categoryIds);
+      DB --> PermissionCategoryRepo: rows (categories)
+      PermissionCategoryRepo --> Service: categories
+      deactivate PermissionCategoryRepo
+
+      '--- Map & return ---
+      Service -> Service: Map -> List<RoleWithPermissionsVM>
+      Service --> Controller: SearchResult { Result, TotalPage, PageSize, CurrentPage, Total }
+      deactivate Service
+      Controller --> UI: 200 OK { success: true, data }
+      deactivate Controller
+      UI --> Client: Display roles list
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

@@ -1,0 +1,97 @@
+@startuml
+title View List Exam Sequence Diagram 
+
+actor "User" as Client
+boundary ":NavigationUI" as UI <<boundary>>
+control "ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "examRepository" as ExamRepo <<repository>>
+entity "roomRepository" as RoomRepo <<repository>>
+entity "userRepository" as UserRepo <<repository>>
+
+database "Database" as DB
+
+== View List Exam ==
+
+Client -> UI: Request view exam list
+activate UI
+UI -> Controller: GET /list (ExamListRequest)
+activate Controller
+
+alt Request is null
+  Controller --> UI: 400 BadRequest { message: "Invalid request body." }
+  deactivate Controller
+  UI --> Client: Show invalid request
+  deactivate UI
+else User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else Valid & authenticated
+  Controller -> Service: GetExamListAsync(request, userId)
+  activate Service
+
+  '--- Authorization ---
+  Service -> UserRepo: CanViewExams(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check lecturer/admin permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt Not allowed
+    Service --> Controller: 403 Forbidden { message: "No permission to view exams." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    '--- Count total exams (filters applied) ---
+    Service -> ExamRepo: CountExams(request)
+    activate ExamRepo
+    ExamRepo -> DB: [SQL: COUNT(*) FROM Exams WHERE <filters>]
+    DB --> ExamRepo: total
+    ExamRepo --> Service: total
+    deactivate ExamRepo
+
+    '--- Get paged exam list (basic fields) ---
+    Service -> ExamRepo: GetExams(request)
+    activate ExamRepo
+    ExamRepo -> DB: [SQL: SELECT ExamId, Title, RoomId, StartTime, EndTime, Status, CreatedBy ... WHERE <filters> ORDER BY StartTime DESC LIMIT/OFFSET]
+    DB --> ExamRepo: rows (exams)
+    ExamRepo --> Service: exams
+    deactivate ExamRepo
+
+    alt No exams
+      Service --> Controller: 200 OK { data: empty, total=0 }
+      deactivate Service
+      Controller --> UI: 200 OK
+      deactivate Controller
+      UI --> Client: Show empty list
+      deactivate UI
+    else Some exams
+      '--- (Optional) enrich with room/creator names ---
+      opt Need room names
+        Service -> RoomRepo: GetByIds(roomIds)
+        activate RoomRepo
+        RoomRepo -> DB: [SQL: SELECT RoomId, Name WHERE RoomId IN (...)]
+        DB --> RoomRepo: rooms
+        RoomRepo --> Service: rooms
+        deactivate RoomRepo
+      end opt
+
+      Service -> Service: Map to ExamListVM & paging
+      Service --> Controller: 200 OK { data: SearchResult }
+      deactivate Service
+      Controller --> UI: 200 OK { message: "Success", data }
+      deactivate Controller
+      UI --> Client: Display exam list
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

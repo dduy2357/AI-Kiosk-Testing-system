@@ -1,0 +1,126 @@
+@startuml
+title Change Exam Status Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonChangeExamStatus" as UI <<boundary>>
+control "ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "userRepository" as UserRepo <<repository>>
+entity "examRepository" as ExamRepo <<repository>>
+
+database "Database" as DB
+
+== Change Exam Status ==
+
+Client -> UI: Click change exam status
+activate UI
+UI -> Controller: POST /{examId}/status (ChangeStatusRequest)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: ChangeExamStatusAsync(examId, newStatus, userId)
+  activate Service
+
+  '--- Authorization ---
+  Service -> UserRepo: CanChangeExamStatus(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check lecturer/admin permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt Not allowed
+    Service --> Controller: 403 Forbidden { message: "No permission to change exam status." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    '--- Load exam ---
+    Service -> ExamRepo: GetExamById(examId)
+    activate ExamRepo
+    ExamRepo -> DB: [SQL: SELECT exam by id]
+    DB --> ExamRepo: exam|null
+    ExamRepo --> Service: exam|null
+    deactivate ExamRepo
+
+    alt Exam not found
+      Service --> Controller: 400 BadRequest { message: "Exam not found." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show not found
+      deactivate UI
+    else Exam found
+      '--- Business rules ---
+      Service -> Service: Validate status change (ongoing/completed/cancelled/same)
+
+      alt Invalid change
+        Service --> Controller: 400 BadRequest { message: "<reason>" }
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show error
+        deactivate UI
+      else Valid change
+        '--- Transaction & update ---
+        Service -> UoW: BeginTransactionAsync()
+        activate UoW
+        UoW -> DB: BEGIN
+        DB --> UoW: started
+        deactivate UoW
+
+        Service -> ExamRepo: UpdateExamStatus(examId, newStatus)
+        activate ExamRepo
+        ExamRepo -> DB: [SQL: UPDATE Exams SET Status=@newStatus WHERE ExamId=@id]
+        DB --> ExamRepo: updated
+        ExamRepo --> Service: ok
+        deactivate ExamRepo
+
+        ' Decide success/exception
+        alt Persist success
+          Service -> UoW: SaveChangesAsync()
+          activate UoW
+          UoW -> DB: SAVE
+          DB --> UoW: saved
+          deactivate UoW
+
+          Service -> UoW: CommitTransactionAsync()
+          activate UoW
+          UoW -> DB: COMMIT
+          DB --> UoW: committed
+          deactivate UoW
+
+          Service --> Controller: 200 OK { message: "Status changed to {newStatus}." }
+          deactivate Service
+          Controller --> UI: 200 OK
+          deactivate Controller
+          UI --> Client: Show success
+          deactivate UI
+        else Exception during update
+          Service -> UoW: RollbackTransactionAsync()
+          activate UoW
+          UoW -> DB: ROLLBACK
+          DB --> UoW: rolled back
+          deactivate UoW
+
+          Service --> Controller: 400 BadRequest { message: "Error changing status." }
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show error
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

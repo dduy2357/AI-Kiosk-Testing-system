@@ -1,0 +1,113 @@
+@startuml
+' Simplified View Exam Supervisors Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title View Exam Supervisors Class Diagram
+
+package "Controllers" {
+    class ExamSupervisorController <<Controller>> {
+        - _examSupervisorService: IExamSupervisorService
+        + GetSupervisors(search: SearchRequestVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamSupervisorService <<Interface>> {
+        + GetSupervisors(search: SearchRequestVM): Task<(string, SearchResult?)>
+    }
+    class ExamSupervisorService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetSupervisors(search: SearchRequestVM): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IUserRepository {
+        + GetUserById(userId: string)
+        + GetSupervisors(search: SearchRequestVM)
+    }
+    interface ISubjectRepository {
+        + GetSubjectById(subjectId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class SearchRequestVM <<DTO>> {
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class SearchResult <<DTO>> {
+        + Result: List<UserSupervisorVM>
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+    class UserSupervisorVM <<DTO>> {
+        + UserId: string
+        + FullName: string
+        + UserCode: string
+        + Email: string
+        + SubjectNames: List<string>
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Student
+        Lecture
+        Admin
+    }
+    enum UserStatus {
+        Inactive
+        Active
+    }
+}
+
+' Relationships
+ExamSupervisorController ..> IExamSupervisorService : <<uses>>
+ExamSupervisorController ..> SearchRequestVM : <<uses>>
+IExamSupervisorService <|.. ExamSupervisorService : <<implements>>
+ExamSupervisorService ..> IUserRepository : <<uses>>
+ExamSupervisorService ..> ISubjectRepository : <<uses>>
+ExamSupervisorService ..> SearchResult : <<returns>>
+SearchResult o-- UserSupervisorVM : <<contains>>
+UserSupervisorVM ..> RoleEnum : <<uses>>
+UserSupervisorVM ..> UserStatus : <<uses>>
+
+@enduml

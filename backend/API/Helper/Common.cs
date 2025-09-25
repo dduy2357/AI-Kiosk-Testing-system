@@ -1,0 +1,59 @@
+﻿using API.Commons;
+using API.Models;
+using System.Text.RegularExpressions;
+
+namespace API.Helper
+{
+    public static class Common
+    {
+        public static string PrepareEmail(this string email, out object result)
+        {
+            result = null;
+            if (string.IsNullOrEmpty(email)) return "Email không được để trống";
+
+            result = email.Trim().RemoveWhitespace(); // Chuẩn hóa email
+            return "";
+        }
+
+        public static bool IsValidEmailFormat(this string email)
+        {
+            var emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$"; // Định dạng email cơ bản
+            return Regex.IsMatch(email, emailPattern);
+        }
+
+        public static string CheckEmail(this IQueryable<User> query, string email)
+        {
+            string msg = email.PrepareEmail(out object result);
+            if (msg.Length > 0) return msg;
+            if (!result.ObjToString().IsValidEmailFormat()) return "Email không đúng định dạng";
+
+            bool check = query.Any(u => u.Email.ToLower() == result.ObjToString().ToLower());
+            if (check) return ConstMessage.EMAIL_EXISTED;
+
+            return "";
+        }
+
+        public static bool IsS3Url(this string url)
+        {
+            if (url.IsEmpty()) return false;
+            return url.StartsWith(UrlS3.UrlMain);
+        }
+
+        public static string ExtractKeyFromUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return "";
+            return url.StartsWith(UrlS3.UrlMain) ? url.Replace(UrlS3.UrlMain, "") : "";
+        }
+
+        public static bool IsCompleted(int? status)
+        {
+            return status != (int)StudentExamStatus.NotStarted && status != (int)StudentExamStatus.InProgress;
+        }
+        public static bool IsSubmittedOrFinished(int? status)
+        {
+            return status == (int)StudentExamStatus.Submitted ||
+                   status == (int)StudentExamStatus.Failed ||
+                   status == (int)StudentExamStatus.Passed;
+        }
+    }
+}

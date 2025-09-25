@@ -1,0 +1,85 @@
+@startuml
+title View Detail Live Exam Sequence Diagram 
+actor "User" as Client
+boundary ":ButtonViewDetailedLiveExam" as UI <<boundary>>
+control "StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "examRepository" as ExamRepo <<repository>>
+entity "roomRepository" as RoomRepo <<repository>>
+
+database "Database" as DB
+
+== View Detail Live Exam ==
+
+Client -> UI: Request exam detail (examId)
+activate UI
+UI -> Controller: GET /exam-detail/{examId}
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized message
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetExamDetail(examId, userId)
+  activate Service
+
+  '--- Authorization (must be Student) ---
+  Service -> Service: Ensure role = Student (from token/claims)
+  alt Not student
+    Service --> Controller: 403 Forbidden { message: "You do not have permission to view exam details." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Is student
+    '--- Load Exam ---
+    Service -> ExamRepo: GetExamById(examId)
+    activate ExamRepo
+    ExamRepo -> DB: [SQL: SELECT exam by id]
+    DB --> ExamRepo: exam|null
+    ExamRepo --> Service: exam|null
+    deactivate ExamRepo
+
+    alt Exam not found
+      Service --> Controller: 404 Not Found { message: "Exam not found." }
+      deactivate Service
+      Controller --> UI: 404 Not Found
+      deactivate Controller
+      UI --> Client: Show exam not found
+      deactivate UI
+    else Exam found
+      '--- Load Room for the exam ---
+      Service -> RoomRepo: GetRoomById(exam.RoomId)
+      activate RoomRepo
+      RoomRepo -> DB: [SQL: SELECT room by id]
+      DB --> RoomRepo: room|null
+      RoomRepo --> Service: room|null
+      deactivate RoomRepo
+
+      '--- Access check: student must belong to this room (service-level) ---
+      Service -> Service: Validate user access to exam/room
+      alt User not in room
+        Service --> Controller: 403 Forbidden { message: "You do not have access to this exam." }
+        deactivate Service
+        Controller --> UI: 403 Forbidden
+        deactivate Controller
+        UI --> Client: Show no access
+        deactivate UI
+      else Has access
+        Service -> Service: Map (exam, room) -> ExamDetailVM
+        Service --> Controller: 200 OK { data: ExamDetailVM }
+        deactivate Service
+        Controller --> UI: 200 OK { success: true, data }
+        deactivate Controller
+        UI --> Client: Show exam detail
+        deactivate UI
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

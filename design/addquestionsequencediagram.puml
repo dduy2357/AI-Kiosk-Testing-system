@@ -1,0 +1,141 @@
+@startuml
+title Add Question Sequence Diagram (Builder Pattern, fixed)
+
+actor "User" as Client
+boundary ":AddQuestionFormUI" as UI <<boundary>>
+control ":QuestionController" as Controller <<controller>>
+participant ":QuestionService" as Service <<service>>
+control "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "QuestionRepository" as QuestionRepo <<repository>>
+entity "QuestionBankRepository" as QuestionBankRepo <<repository>>
+entity "SubjectRepository" as SubjectRepo <<repository>>
+entity "UserRepository" as UserRepo <<repository>>
+
+participant ":QuestionDirector" as Director
+participant ":MultipleChoiceQuestionBuilder" as MCBuilder
+participant ":EssayQuestionBuilder" as EssayBuilder
+
+database "Database" as DB
+
+== Add Question ==
+
+Client -> UI: Submit add question form
+activate UI
+UI -> Controller: POST /questions/add (AddQuestionRequest)
+activate Controller
+
+alt Invalid request body
+  Controller --> UI: 400 BadRequest { message: "Invalid request body." }
+  deactivate Controller
+  UI --> Client: Show invalid request
+  deactivate UI
+else User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else Valid & authenticated
+  Controller -> Service: AddQuestionAsync(request, userId)
+  activate Service
+
+  Service -> UserRepo: IsLecturer(userId)
+  activate UserRepo
+  UserRepo -> DB: -- SQL: check lecturer role
+  DB --> UserRepo: allowed? (bool)
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt User is not allowed
+    Service --> Controller: (false, "The user is not a lecturer.")
+    deactivate Service
+    Controller --> UI: 403 Forbidden { message }
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else User is allowed
+    Service -> QuestionBankRepo: GetById(request.QuestionBankId)
+    activate QuestionBankRepo
+    QuestionBankRepo -> DB: -- SQL: get QuestionBank by id
+    DB --> QuestionBankRepo: exists? (bool)
+    QuestionBankRepo --> Service: exists? (bool)
+    deactivate QuestionBankRepo
+
+    alt Question bank not found
+      Service --> Controller: (false, "Question bank not found.")
+      deactivate Service
+      Controller --> UI: 400 BadRequest { message }
+      deactivate Controller
+      UI --> Client: Show error
+      deactivate UI
+    else Question bank found
+      Service -> SubjectRepo: GetById(request.SubjectId)
+      activate SubjectRepo
+      SubjectRepo -> DB: -- SQL: get Subject by id
+      DB --> SubjectRepo: exists? (bool)
+      SubjectRepo --> Service: exists? (bool)
+      deactivate SubjectRepo
+
+      alt Subject not found
+        Service --> Controller: (false, "Subject not found.")
+        deactivate Service
+        Controller --> UI: 400 BadRequest { message }
+        deactivate Controller
+        UI --> Client: Show error
+        deactivate UI
+      else Subject found
+        Service -> Director: Construct(builder, request)
+        activate Director
+
+        alt Type = MultipleChoice
+          Director -> MCBuilder: Reset/Set* (content, point, options, correct, difficulty, meta)
+          MCBuilder --> Director: built Question
+        else Type = Essay
+          Director -> EssayBuilder: Reset/Set* (content, point, sample answer, difficulty, meta)
+          EssayBuilder --> Director: built Question
+        else Invalid type
+          Director --> Service: error("Invalid question type")
+        end alt
+
+        Director --> Service: built Question
+        deactivate Director
+
+        alt Invalid payload
+          Service --> Controller: (false, "Invalid question data.")
+          deactivate Service
+          Controller --> UI: 400 BadRequest { message }
+          deactivate Controller
+          UI --> Client: Show invalid
+          deactivate UI
+        else Valid payload
+          Service -> UoW: BeginTransactionAsync()
+          activate UoW
+          UoW -> DB: BEGIN
+          DB --> UoW: ok
+          deactivate UoW
+
+          Service -> QuestionRepo: Insert(built Question)
+          activate QuestionRepo
+          QuestionRepo -> DB: -- SQL: INSERT INTO Questions (...)
+          DB --> QuestionRepo: inserted
+          QuestionRepo --> Service: ok
+          deactivate QuestionRepo
+
+          Service -> UoW: CommitTransactionAsync()
+          activate UoW
+          UoW -> DB: COMMIT
+          DB --> UoW: ok
+          deactivate UoW
+
+          Service --> Controller: (true, "Question has been created successfully.")
+          deactivate Service
+          Controller --> UI: 200 OK { message }
+          deactivate Controller
+          UI --> Client: Show success
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

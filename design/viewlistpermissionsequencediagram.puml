@@ -1,0 +1,84 @@
+@startuml
+title View List Permission Sequence Diagram
+
+actor "User" as Client
+boundary ":NavigationUI" as UI <<boundary>>
+control "AuthorizeController" as Controller <<controller>>
+participant ":AuthorizeService" as Service <<service>>
+
+entity "PermissionRepository" as PermissionRepo <<repository>>
+entity "PermissionCategoryRepository" as PermissionCategoryRepo <<repository>>
+
+database "Database" as DB
+
+== View List Permission ==
+
+Client -> UI: Request view permissions
+activate UI
+UI -> Controller: GET /get-all-permission (SearchRequestVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized message
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetAllPermissions(search)
+  activate Service
+
+  '--- Authorization (concise) ---
+  Service -> DB: SELECT 1 FROM UserRoles WHERE UserId=@uid AND CanViewPermissions=1;
+  DB --> Service: row | null
+
+  alt User is not allowed
+    Service --> Controller: "You do not have permission to view permissions."
+    deactivate Service
+    Controller --> UI: 403 Forbidden { success: false, message }
+    deactivate Controller
+    UI --> Client: Show forbidden message
+    deactivate UI
+  else User is allowed
+    '--- Count total (PermissionRepository) ---
+    Service -> PermissionRepo: Count(search)
+    activate PermissionRepo
+    PermissionRepo -> DB: SELECT COUNT(*) AS Total FROM Permissions WHERE (@q IS NULL OR Name LIKE '%'||@q||'%');
+    DB --> PermissionRepo: Total
+    PermissionRepo --> Service: Total
+    deactivate PermissionRepo
+
+    '--- Page data (PermissionRepository) ---
+    Service -> PermissionRepo: GetPermissions(search)
+    activate PermissionRepo
+    PermissionRepo -> DB: SELECT PermissionId, Name, CategoryId FROM Permissions WHERE (@q IS NULL OR Name LIKE '%'||@q||'%') ORDER BY Name ASC LIMIT @PageSize OFFSET @Offset;
+    DB --> PermissionRepo: rows (permissions)
+    PermissionRepo --> Service: permissions
+    deactivate PermissionRepo
+
+    alt No permission found
+      Service --> Controller: "No permission found."
+      deactivate Service
+      Controller --> UI: 400 BadRequest { success: false, message }
+      deactivate Controller
+      UI --> Client: Show no permission found
+      deactivate UI
+    else Permissions found
+      '--- Load categories for returned permissions (PermissionCategoryRepository) ---
+      Service -> PermissionCategoryRepo: GetCategoriesById(categoryIds)
+      activate PermissionCategoryRepo
+      PermissionCategoryRepo -> DB: SELECT CategoryId, CategoryName FROM PermissionCategories WHERE CategoryId IN (@categoryIds);
+      DB --> PermissionCategoryRepo: rows (categories)
+      PermissionCategoryRepo --> Service: categories
+      deactivate PermissionCategoryRepo
+
+      Service -> Service: Group by Category -> CategoryPermissionsVM
+      Service --> Controller: SearchResult { Result, TotalPage, PageSize, CurrentPage, Total }
+      deactivate Service
+      Controller --> UI: 200 OK { success: true, data }
+      deactivate Controller
+      UI --> Client: Display permissions list
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

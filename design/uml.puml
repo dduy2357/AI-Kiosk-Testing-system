@@ -1,0 +1,46 @@
+@startuml
+skinparam SwimlaneBorderColor Black
+skinparam SwimlaneFontColor Black
+skinparam SwimlaneBackgroundColor #FDF6E3
+skinparam ActivityBackgroundColor #FDF6E3
+skinparam ActivityBorderColor Black
+skinparam ActivityFontColor Black
+skinparam shadowing false
+|BO|
+start
+:Create Issue Ticket;
+|DPO|
+:Create DPIA;
+|BO|
+:Start DPIA;
+:Notify To User;
+==
+|QA Manager|
+:Assign Team Member;
+:Mark as ready;
+==
+|IT Manager|
+:Assign Team Member;
+:Mark as ready;
+|CISO|
+:Assign Team Member;
+:Mark as ready;
+
+|QA Manager|
+:Assessment Compliance;
+:Upload Document;
+:Mark As Done;
+==
+|IT Manager|
+:Assessment Cyber Security;
+:Upload Document;
+:Mark As Done;
+|CISO|
+:Assessment and Comment System Architecture;
+:Upload Document;
+:Mark As Done;
+
+|BO|
+:Approve / Reject DPIA;
+stop
+@enduml

@@ -1,0 +1,66 @@
+@startuml
+
+package  #FFFF99 {
+    title AKTs_Web FE
+
+    package "routes" #FFFF99 {
+        package AppRoute #FFFF99
+        package AuthRoute #FFFF99
+        package "..." as RoutesEtc #FFFF99
+    }
+
+    package "page" #FFFF99 {
+        package Exam #FFFF99
+        package Question #FFFF99
+        package QuestionBank #FFFF99
+        package "..." as PageEtc #FFFF99
+    }
+
+    package "components" #FFFF99 {
+        package common #FFFF99
+        package form #FFFF99
+        package language #FFFF99
+        package "..." as ComponentsEtc #FFFF99
+    }
+
+    package "hooks" #FFFF99 {
+        package UseAuth #FFFF99
+    }
+
+    package "contexts" #FFFF99 {
+        package AuthContext #FFFF99
+        package "..." as ContextsEtc #FFFF99
+    }
+
+    package "configs" #FFFF99 {
+        package "API Endpoint" #FFFF99
+        package "..." as ConfigsEtc #FFFF99
+    }
+
+    package "utils" #FFFF99 {
+        package jwtDecode #FFFF99
+        package zodHelper #FFFF99
+        package "..." as UtilsEtc #FFFF99
+    }
+
+    package validation #FFFF99
+
+    ' Relationships
+    "routes" ..> "page" : <<access>>
+    "routes" ..> "hooks" : <<access>>
+    "routes" ..> "components" : <<access>>
+    "page" ..> "hooks" : <<access>>
+    "page" ..> "contexts" : <<access>>
+    "page" ..> "validation" : <<access>>
+    "components" ..> "hooks" : <<access>>
+    "components" ..> "utils" : <<access>>
+    "hooks" ..> "contexts" : <<access>>
+    "hooks" ..> "configs" : <<import>>
+    "hooks" ..> "utils" : <<access>>
+    "contexts" ..> "utils" : <<access>>
+    "configs" ..> "utils" : <<import>>
+    "validation" ..> "utils" : <<access>>
+
+}
+
+@enduml 

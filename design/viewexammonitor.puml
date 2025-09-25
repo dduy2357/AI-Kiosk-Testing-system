@@ -1,0 +1,134 @@
+@startuml
+' Simplified View Exam Monitor (Overview) Class Diagram (giống dạng View List Role)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title View Exam Monitor (Overview) Class Diagram
+
+package "Controllers" {
+    class MonitoringController <<Controller>> {
+        - _monitoringService: IMonitoringService
+        + GetExamOverview(search: MonitorExamSearchVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IMonitoringService <<Interface>> {
+        + GetExamOverview(search: MonitorExamSearchVM, usertoken: string): Task<(string, SearchResult?)>
+    }
+    class MonitoringService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetExamOverview(search: MonitorExamSearchVM, usertoken: string): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetExams(search: MonitorExamSearchVM)
+        + GetById(examId: string)
+    }
+    interface IRoomRepository {
+        + GetById(roomId: string)
+    }
+    interface IClassRepository {
+        + GetById(classId: string)
+    }
+    interface ISubjectRepository {
+        + GetById(subjectId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class MonitorExamSearchVM <<DTO>> {
+        + SubjectId: string
+        + ExamStatus: ExamStatus?
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class MonitorExamsVM <<DTO>> {
+        + ExamId: string
+        + RoomId: string
+        + RoomCode: string
+        + ClassId: string
+        + ClassCode: string
+        + SubjectName: string
+        + Title: string
+        + Description: string
+        + Duration: int
+        + StartTime: DateTime
+        + EndTime: DateTime
+        + ExamType: int
+        + Status: int
+        + CreateUserId: string
+        + CreateUserName: string
+        + CreateEmail: string
+        + MaxCapacity: int
+        + StudentDoing: int
+        + StudentCompleted: int
+    }
+    class SearchResult <<DTO>> {
+        + Result: object
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+}
+
+package "Enums" {
+    enum ExamStatus {
+        Draft
+        Published
+        Cancelled
+        Archived
+    }
+}
+
+' Relationships
+MonitoringController ..> IMonitoringService : <<uses>>
+MonitoringController ..> MonitorExamSearchVM : <<uses>>
+IMonitoringService <|.. MonitoringService
+MonitoringService ..> MonitorExamSearchVM : <<uses>>
+MonitoringService ..> MonitorExamsVM : <<maps to>>
+MonitoringService ..> SearchResult : <<returns>>
+MonitoringService ..> IExamRepository : <<uses>>
+MonitoringService ..> IRoomRepository : <<uses>>
+MonitoringService ..> IClassRepository : <<uses>>
+MonitoringService ..> ISubjectRepository : <<uses>>
+MonitorExamSearchVM ..> ExamStatus : <<uses>>
+SearchResult o-- MonitorExamsVM : <<contains>>
+
+@enduml

@@ -1,0 +1,55 @@
+@startuml
+title Examination System Statechart
+
+skinparam state {
+    BorderColor black
+}
+
+[*] --> Ready
+
+state "Ready" as Ready #lightgreen
+Ready : + Trigger: System initialized
+Ready : + Condition: Exam not started
+Ready : + Meaning: Exam is ready to start
+
+state "Enter OTP" as EnterOTP #yellow
+EnterOTP : + Trigger: Student starts exam
+EnterOTP : + Condition: Awaiting OTP
+EnterOTP : + Meaning: Student enters OTP to proceed
+
+state "Check Camera" as CheckCamera #yellow
+CheckCamera : + Trigger: OTP valid
+CheckCamera : + Condition: Camera check initiated
+CheckCamera : + Meaning: Ensures student camera is active
+
+state "In Progress" as InProgress #lightblue
+InProgress : + Trigger: Camera ready
+InProgress : + Condition: All checks passed
+InProgress : + Meaning: Student is taking the exam
+
+state "Submitted" as Submitted #khaki
+Submitted : + Trigger: Student submits exam
+Submitted : + Condition: Exam completed
+Submitted : + Meaning: Exam is submitted and pending grading
+
+state "Graded" as Graded
+Graded : + Trigger: Instructor or system grades exam
+Graded : + Condition: Submission complete
+Graded : + Meaning: Exam has been graded
+
+state "Send Log" as SendLog #red
+SendLog : + Trigger: Cheating detected
+SendLog : + Condition: Suspicious behavior
+SendLog : + Meaning: System logs and reports behavior
+
+Ready --> EnterOTP : Student starts exam
+EnterOTP --> CheckCamera : OTP valid
+EnterOTP --> Ready : OTP invalid / Cancel
+CheckCamera --> InProgress : Camera ready
+CheckCamera --> Ready : Camera not ready / Cancel
+InProgress --> Submitted : Student submits exam
+InProgress --> SendLog : Cheating detected
+Submitted --> Graded : Exam graded
+Graded --> [*]
+
+@enduml

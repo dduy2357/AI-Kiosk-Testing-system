@@ -1,0 +1,76 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 80
+skinparam ranksep 100
+
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor darkblue
+  FontColor darkblue
+  FontSize 12
+}
+
+
+skinparam usecase {
+  BackgroundColor yellow
+  BorderColor darkgreen
+  FontColor darkgreen
+  FontSize 10
+}
+
+
+skinparam rectangle {
+  BackgroundColor lightyellow
+  BorderColor orange
+  FontColor darkorange
+  FontSize 14
+  FontStyle bold
+}
+
+
+skinparam arrow {
+  Color darkblue
+  FontColor darkblue
+}
+
+
+together {
+  actor User as "User"
+  actor Student as "Student"
+ 
+}
+
+rectangle "AKTs System" {
+  (View Live Exam) as ViewLiveExam
+  (View Detail Live Exam) as ViewDetailLiveExam
+  (View Exam History) as ViewExamHistory
+  (View Exam Result Details) as ViewExamResultDetails
+  (View Exam Guideline) as ViewExamGuidelines
+  (Check Camera) as CheckCamera
+  (Take Exam) as TakeExam
+  (Input OTP) as InputOTP
+  (Submit Exam) as SubmitExam
+  (Save Exam Progress) as SaveExamProgress
+  (Flag/RemoveFlag Question) as FlagQuestion
+  (Resume Interrupted Exam) as ResumeInterruptedExam
+  (View Violation Record) as ViewViolationRecord
+  (View Violation Record) as ViewViolationRecord
+}
+User <|-d- Student 
+Student -- ViewLiveExam
+Student -- ViewExamHistory
+Student -- TakeExam
+Student -- ResumeInterruptedExam
+Student -- ViewViolationRecord
+
+ViewDetailLiveExam .u.> ViewLiveExam : <<extend>>
+ViewExamResultDetails .u.> ViewExamHistory : <<extend>>
+TakeExam .d.> InputOTP : <<include>>
+TakeExam .d.> CheckCamera : <<include>>
+TakeExam .d.> ViewExamGuidelines : <<include>>
+TakeExam .d.> SubmitExam : <<include>>
+SaveExamProgress .u.> TakeExam : <<extend>>
+FlagQuestion .u.> TakeExam : <<extend>>
+
+@enduml

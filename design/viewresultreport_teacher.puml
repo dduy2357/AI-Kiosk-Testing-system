@@ -1,0 +1,79 @@
+@startuml
+' Simplified View Result Report (Teacher) Class Diagram (giống dạng View List Role)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Result Report Class Diagram
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _iService: IExamService
+        + ViewResultReport(examId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + ViewResultReport(examId: string): Task<(string, List<ResultReportVM>?)>
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + ViewResultReport(examId: string): Task<(string, List<ResultReportVM>?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetByExamId(examId: string)
+    }
+    interface IStudentRepository {
+        + GetById(studentId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class ResultReportVM <<DTO>> {
+        + StudentId: string
+        + StudentName: string
+        + Score: decimal
+        + Status: int
+        + SubmitTime: DateTime
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> ResultReportVM : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> IStudentExamRepository : <<uses>>
+ExamService ..> IStudentRepository : <<uses>>
+ExamService ..> ResultReportVM : <<returns>>
+
+@enduml

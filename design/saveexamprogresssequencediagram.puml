@@ -1,0 +1,106 @@
+@startuml
+title Save Exam Progress Sequence Diagram (with repositories, SQL summarized)
+
+actor "User" as Client
+boundary ":ButtonSaveExamProgress" as UI <<boundary>>
+control "StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "studentExamRepository" as StuExamRepo <<repository>>
+entity "studentAnswerRepository" as AnswerRepo <<repository>>
+participant "AnswerValidator" as Validator <<utility>>
+
+database "Database" as DB
+
+== Save Exam Progress ==
+
+Client -> UI: Save answers temporarily (SubmitExamRequest)
+activate UI
+UI -> Controller: POST /save-answer-temporary
+activate Controller
+Controller -> Service: SaveAnswerTemporary(request, userId)
+activate Service
+
+'--- Role check (should be Student) ---
+Service -> Service: Ensure role = Student
+alt Not student
+  Service --> Controller: 403 Forbidden { message: "No permission." }
+  deactivate Service
+  Controller --> UI: 403 Forbidden
+  deactivate Controller
+  UI --> Client: Show forbidden
+  deactivate UI
+else Is student
+  '--- Validate basic payload (non-empty answers etc.) ---
+  Service -> Validator: Validate(request)
+  alt Invalid payload
+    Service --> Controller: 400 BadRequest { message: "Invalid request." }
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show invalid
+    deactivate UI
+  else OK
+    '--- Load StudentExam (must belong to user) ---
+    Service -> StuExamRepo: GetByStudentExamId(request.StudentExamId, request.ExamId, userId)
+    activate StuExamRepo
+    StuExamRepo -> DB: [SQL: SELECT * FROM StudentExams WHERE Id=@seId AND ExamId=@eId AND StudentId=@uid]
+    DB --> StuExamRepo: studentExam|null
+    StuExamRepo --> Service: studentExam|null
+    deactivate StuExamRepo
+
+    alt StudentExam not found
+      Service --> Controller: 400 BadRequest { message: "Student is not found in this exam." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show error
+      deactivate UI
+    else Found
+      '--- Fetch existing answers for the provided question ids ---
+      Service -> AnswerRepo: GetByStudentExamAndQuestionIds(request.StudentExamId, request.Answers.QuestionIds)
+      activate AnswerRepo
+      AnswerRepo -> DB: [SQL: SELECT * FROM StudentAnswers WHERE StudentExamId=@seId AND QuestionId IN (...)]
+      DB --> AnswerRepo: existingAnswers
+      AnswerRepo --> Service: existingAnswers
+      deactivate AnswerRepo
+
+      '--- Diff -> toUpdate / toAdd (skip unchanged) ---
+      Service -> Service: Compute changes (compare UserAnswer)
+
+      alt Have updates
+        Service -> AnswerRepo: UpdateRange(toUpdate)
+        activate AnswerRepo
+        AnswerRepo -> DB: [SQL: batch UPDATE StudentAnswers SET UserAnswer=@val, UpdatedAt=NOW()]
+        DB --> AnswerRepo: ok
+        AnswerRepo --> Service: ok
+        deactivate AnswerRepo
+      end alt
+
+      alt Have inserts
+        Service -> AnswerRepo: AddRange(toAdd)
+        activate AnswerRepo
+        AnswerRepo -> DB: [SQL: batch INSERT INTO StudentAnswers (...)]
+        DB --> AnswerRepo: ok
+        AnswerRepo --> Service: ok
+        deactivate AnswerRepo
+      end alt
+
+      '--- Persist ---
+      Service -> UoW: SaveChangesAsync()
+      activate UoW
+      UoW -> DB: SAVE
+      DB --> UoW: saved
+      deactivate UoW
+
+      Service --> Controller: 200 OK { message: "Save answer temporarily successfully" }
+      deactivate Service
+      Controller --> UI: 200 OK { success: true }
+      deactivate Controller
+      UI --> Client: Show success
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

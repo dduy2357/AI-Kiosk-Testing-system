@@ -1,0 +1,87 @@
+@startuml
+title Manual Send Alert — Sequence Diagram
+
+actor "User" as Client
+boundary ":NotificationUI" as UI <<boundary>>
+control "NotificationController" as Controller <<controller>>
+participant ":NotificationService" as Service <<service>>
+participant "NotifyHub" as Hub <<hub>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+' -- Repositories --
+entity "UserRoleRepository" as RoleRepo <<repository>>
+entity "NotificationRepository" as NotiRepo <<repository>>
+
+
+database "DB" as DB
+
+== Manual Send Alert ==
+
+Client -> UI: Open form / Submit
+activate UI
+UI -> Controller: POST /notifications/create (NotificationCreateVM)
+deactivate UI
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message:"User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+else User authenticated
+  Controller -> Service: Create(input, userId)
+  activate Service
+
+  ' 1) Authorization
+  Service -> RoleRepo: CanSend(userId)
+  activate RoleRepo
+  RoleRepo -> DB: SELECT 1 FROM UserRoles WHERE UserId=? AND Role IN('Admin','Supervisor') LIMIT 1
+  DB --> RoleRepo: ok | null
+  RoleRepo --> Service: allowed?
+  deactivate RoleRepo
+
+  alt Not allowed
+    Service --> Controller: 403 Forbidden { message:"No permission to send notification." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+  else Allowed
+    ' 2) Validate input
+    alt input == null || input.Message is blank
+      Service --> Controller: 400 BadRequest { message:"Notification data is invalid." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show error
+    else Valid
+      ' 3) Persist
+      Service -> UoW: Begin()
+      UoW -> DB: BEGIN
+      DB --> UoW: ok
+
+      Service -> NotiRepo: Add(Notification{ Message, Type, SendTo, CreatedBy=userId })
+      activate NotiRepo
+      NotiRepo -> DB: INSERT INTO Notifications(Message,Type,SendTo,CreatedBy) VALUES(?,?,?,?)
+      DB --> NotiRepo: inserted
+      NotiRepo --> Service: noti
+      deactivate NotiRepo
+
+      Service -> UoW: Commit()
+      UoW -> DB: COMMIT
+      DB --> UoW: ok
+
+      ' 4) Push realtime (SignalR hub)
+      Service -> Hub: SendAsync("RECEIVE_NEW_NOTIFY", noti)
+      activate Hub
+      Hub --> Service: delivered
+      deactivate Hub
+
+      ' 5) Done
+      Service --> Controller: 200 OK { success:true }
+      deactivate Service
+      Controller --> UI: 200 OK
+      deactivate Controller
+      UI --> Client: Show success
+    end alt
+  end alt
+end alt
+@enduml

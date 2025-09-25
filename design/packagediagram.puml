@@ -1,0 +1,72 @@
+@startuml
+
+package  #FFFF99 {
+    title AKTs API
+    package "Controllers" #FFFF99 {
+        package "Exam Controller" #FFFF99 {
+        }
+        package "Question Controller" #FFFF99 {
+        }
+        package "Question Bank Controller" #FFFF99 {
+        }
+    }
+    package "Services" #FFFF99 {
+        package "Exam Services" #FFFF99 {
+        }
+        package "Question Services" #FFFF99 {
+        }
+        package "Question Bank Services" #FFFF99 {
+        }
+    }
+    package "AuthenAttribute" #FFFF99 {
+    }
+    package "Utilities" #FFFF99 {
+    }
+    package "Models" #FFFF99 {
+        package "Exam" #FFFF99 {
+        }
+        package "Question" #FFFF99 {
+        }
+        package "Question Bank" #FFFF99 {
+        }
+    }
+    package "ViewModels" #FFFF99 {
+    }
+    package "Repository" #FFFF99 {
+        package "Exam Repository" #FFFF99 {
+        }
+        package "Question Repository" #FFFF99 {
+        }
+        package "Question Bank Repository" #FFFF99 {
+        }
+    }
+    package "UnitOfWork" #FFFF99 {
+    }
+    package "Observer" #FFFF99 {
+        package "Exam Observer" #FFFF99 {
+        }
+        package "Question Observer" #FFFF99 {
+        }
+        package "Question Bank Observer" #FFFF99 {
+        }
+    }
+    package "Subject" #FFFF99 {
+        package "Exam Subject" #FFFF99 {
+        }
+        package "Question Subject" #FFFF99 {
+        }
+        package "Question Bank Subject" #FFFF99 {
+        }
+    }
+    "Controllers" ..> "Services" : Access
+    "Services" ..> "Models" : Import
+    "Controllers" ..> "ViewModels" : Import
+    "Services" ..> "ViewModels" : Import
+    "Controllers" ..> "AuthenAttribute" : Access
+    "Repository" ..> "Models" : Import
+    "Observer" ..> "Subject" : Import
+    "UnitOfWork" ..> "Repository" : Manage
+    "UnitOfWork" ..> "Services" : Import
+    "Subject" ..> "Services" : Access
+}
+@enduml

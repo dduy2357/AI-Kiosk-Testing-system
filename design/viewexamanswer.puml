@@ -1,0 +1,84 @@
+@startuml
+' Simplified View Exam Answer Class Diagram (giống dạng View List Role)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Exam Answer Class Diagram
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _iService: IExamService
+        + ViewExamAnswer(examId: string, studentId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + ViewExamAnswer(examId: string, studentId: string): Task<(string, List<ExamAnswerVM>?)>
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + ViewExamAnswer(examId: string, studentId: string): Task<(string, List<ExamAnswerVM>?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetByExamAndStudent(examId: string, studentId: string)
+    }
+    interface IStudentAnswerRepository {
+        + GetByStudentExamId(studentExamId: string)
+    }
+    interface IQuestionRepository {
+        + GetByIds(questionIds: List<string>)
+    }
+}
+
+package "Models & DTOs" {
+    class ExamAnswerVM <<DTO>> {
+        + QuestionId: string
+        + QuestionContent: string
+        + UserAnswer: string
+        + CorrectAnswer: string
+        + IsCorrect: bool
+        + PointsEarned: decimal
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> ExamAnswerVM : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> IStudentExamRepository : <<uses>>
+ExamService ..> IStudentAnswerRepository : <<uses>>
+ExamService ..> IQuestionRepository : <<uses>>
+ExamService ..> ExamAnswerVM : <<returns>>
+
+@enduml

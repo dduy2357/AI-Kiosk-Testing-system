@@ -1,0 +1,76 @@
+@startuml
+title View Exam Monitor Detail — Sequence Diagram
+actor "User" as Client
+boundary ":MonitorUI" as UI <<boundary>>
+control ":MonitoringController" as Controller <<controller>>
+participant ":MonitoringService" as Service <<service>>
+
+entity "ExamRepository" as ExamRepo <<repository>>
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+
+database "Database" as DB
+
+== View Exam Monitor Detail ==
+
+Client -> UI: Click exam monitor detail (MonitorExamDetailSearchVM)
+activate UI
+UI -> Controller: GET /exam-monitor-detail
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetExamMonitorDetail(search, usertoken)
+  activate Service
+
+  ' --- Check admin ---
+  Service -> DB: SELECT 1 FROM Users WHERE Id=@uid AND Role='Admin'
+  DB --> Service: isAdmin
+
+  ' --- Check permission ---
+  Service -> ExamRepo: HasPermission(userId, examId)
+  activate ExamRepo
+  ExamRepo -> DB: SELECT ExamId FROM ExamSupervisors WHERE UserId=@uid AND ExamId=@eid
+  DB --> ExamRepo: examId | null
+  ExamRepo --> Service: hasPermission
+  deactivate ExamRepo
+
+  alt No permission
+    Service --> Controller: 403 Forbidden
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Has permission
+    ' --- Search student exams ---
+    Service -> StuExamRepo: SearchDetail(examId, search)
+    activate StuExamRepo
+    StuExamRepo -> DB: SELECT * FROM StudentExams WHERE ExamId=@eid ...
+    DB --> StuExamRepo: studentExams
+    StuExamRepo --> Service: studentExams
+    deactivate StuExamRepo
+
+    ' --- Count total ---
+    Service -> StuExamRepo: CountDetail(examId, search)
+    activate StuExamRepo
+    StuExamRepo -> DB: SELECT COUNT(*) FROM StudentExams WHERE ExamId=@eid ...
+    DB --> StuExamRepo: total
+    StuExamRepo --> Service: total
+    deactivate StuExamRepo
+
+    ' --- Build result ---
+    Service -> Service: Merge data -> MonitorExamDetailVM
+    Service --> Controller: 200 OK { success:true, data: SearchResult(...) }
+    deactivate Service
+    Controller --> UI: 200 OK
+    deactivate Controller
+    UI --> Client: Show detail
+    deactivate UI
+  end
+end
+
+@enduml

@@ -1,0 +1,57 @@
+@startuml Exam_Creation_Statechart
+title Exam Creation Statechart
+
+
+skinparam state {
+    BorderColor black
+}
+
+
+
+
+state "Input Info" as Input #yellow
+Input : + Trigger: Begin creation
+Input : + Condition: Form is open
+Input : + Meaning: Instructor inputs exam information
+
+state "Validate" as Validate #lightblue
+Validate : + Trigger: Done entering info
+Validate : + Condition: Validation in progress
+Validate : + Meaning: System checks for data correctness
+
+state "Error" as Error #red
+Error : + Trigger: Validation fails
+Error : + Condition: Invalid or missing data
+Error : + Meaning: System prompts for correction
+
+state "Save" as Save #khaki
+Save : + Trigger: Validation success
+Save : + Condition: Data is complete and valid
+Save : + Meaning: Exam info is saved in system
+
+state "Display" as Display #orange
+Display : + Trigger: Save completed
+Display : + Condition: Exam data exists
+Display : + Meaning: Exam is displayed for review
+
+state "Publish" as Publish #cyan
+Publish : + Trigger: Instructor clicks publish
+Publish : + Condition: Exam passes review
+Publish : + Meaning: System starts publishing process
+
+state "Show to Student" as ShowStudent #pink
+ShowStudent : + Trigger: Student accesses system
+ShowStudent : + Condition: Exam is published
+ShowStudent : + Meaning: Student can view and take the exam
+
+[*] --> Input : Begin creation
+Input --> Validate : Done
+Validate --> Error : Invalid
+Validate --> Save : Valid
+Error --> Input : Retry
+Save --> Display : Saved
+Display --> Publish : Publish
+Publish --> ShowStudent : Success
+ShowStudent --> [*]
+
+@enduml

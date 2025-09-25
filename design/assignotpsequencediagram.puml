@@ -1,0 +1,142 @@
+@startuml
+title Assign OTP Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonAssignOtp" as UI <<boundary>>
+control "ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "userRepository" as UserRepo <<repository>>
+entity "examRepository" as ExamRepo <<repository>>
+entity "examOtpRepository" as OtpRepo <<repository>>
+
+database "Database" as DB
+
+== Assign OTP ==
+
+Client -> UI: Submit assign OTP form
+activate UI
+UI -> Controller: POST /assign-otp (CreateExamOtpVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: AssignOTP(input, userId)
+  activate Service
+
+  '--- Authorization ---
+  Service -> UserRepo: CanAssignOtp(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check lecturer/admin permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt Not allowed
+    Service --> Controller: "You do not have permission to assign OTP."
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    '--- Validate input (ExamId, TimeValid > 0) ---
+    Service -> Service: Validate(input)
+    alt Invalid input
+      Service --> Controller: "Invalid ExamId or TimeValid."
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show invalid input
+      deactivate UI
+    else Valid input
+      '--- Load exam (must be Published) ---
+      Service -> ExamRepo: GetWithRoomById(input.ExamId)
+      activate ExamRepo
+      ExamRepo -> DB: [SQL: SELECT exam WHERE Id=@id]
+      DB --> ExamRepo: exam|null
+      ExamRepo --> Service: exam|null
+      deactivate ExamRepo
+
+      alt Exam not found or not Published
+        Service --> Controller: "Exam not found or not active."
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show exam not found
+        deactivate UI
+      else Exam ok
+        '--- Check end time ---
+        Service -> Service: Ensure exam not ended (Now < EndTime)
+        alt Exam ended
+          Service --> Controller: "Exam has already ended."
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show exam ended
+          deactivate UI
+        else Exam active
+          '--- Generate OTP & upsert ---
+          Service -> Service: Generate 6-digit OTP
+
+          Service -> UoW: BeginTransactionAsync()
+          activate UoW
+          UoW -> DB: BEGIN
+          DB --> UoW: started
+          deactivate UoW
+
+          ' Try get existing OTP
+          Service -> OtpRepo: GetByExamId(input.ExamId)
+          activate OtpRepo
+          OtpRepo -> DB: [SQL: SELECT ExamOtp WHERE ExamId=@id]
+          DB --> OtpRepo: otp|null
+          OtpRepo --> Service: otp|null
+          deactivate OtpRepo
+
+          alt OTP not exists
+            Service -> OtpRepo: AddAsync(newOtp)
+            activate OtpRepo
+            OtpRepo -> DB: [SQL: INSERT ExamOtp]
+            DB --> OtpRepo: inserted
+            OtpRepo --> Service: ok
+            deactivate OtpRepo
+          else OTP exists
+            Service -> OtpRepo: Update(existingOtp with new code/expiredAt)
+            activate OtpRepo
+            OtpRepo -> DB: [SQL: UPDATE ExamOtp SET OtpCode, ExpiredAt WHERE ExamId=@id]
+            DB --> OtpRepo: updated
+            OtpRepo --> Service: ok
+            deactivate OtpRepo
+          end alt
+
+          ' Persist
+          Service -> UoW: SaveChangesAsync()
+          activate UoW
+          UoW -> DB: SAVE
+          DB --> UoW: saved
+          deactivate UoW
+
+          ' Commit
+          Service -> UoW: CommitTransactionAsync()
+          activate UoW
+          UoW -> DB: COMMIT
+          DB --> UoW: committed
+          deactivate UoW
+
+          Service --> Controller: ("", ExamOtpVM)
+          deactivate Service
+          Controller --> UI: 200 OK { success: true, data }
+          deactivate Controller
+          UI --> Client: Show OTP info
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

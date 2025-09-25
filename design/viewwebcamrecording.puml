@@ -1,0 +1,136 @@
+@startuml
+' Class Diagram for View Webcam Recording Feature (giống dạng View List Role)
+
+title View Webcam Recording Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class FaceCaptureController <<Controller>> {
+        - _faceCaptureService: IFaceCaptureService
+        + GetList(input: FaceCaptureSearchVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IFaceCaptureService <<Interface>> {
+        + GetList(input: FaceCaptureSearchVM): Task<(string, SearchResult?)>
+    }
+    class FaceCaptureService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetList(input: FaceCaptureSearchVM): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IFaceCaptureRepository {
+        + GetByStudentExamId(studentExamId: string)
+        + GetByExamId(examId: string)
+    }
+    interface IStudentExamRepository {
+        + GetById(studentExamId: string)
+    }
+    interface IUserRepository {
+        + GetById(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class FaceCaptureSearchVM <<DTO>> {
+        + StudentExamId: string
+        + ExamId: string
+        + LogType: LogType?
+    }
+    class SearchRequestVM <<Base DTO>> {
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class FaceCaptureVM <<DTO>> {
+        + StudentExamId: string
+        + UserId: string
+        + FullName: string
+        + UserCode: string
+        + Captures: List<CaptureImages>
+    }
+    class CaptureImages <<DTO>> {
+        + CaptureId: string
+        + ImageUrl: string
+        + Description: string
+        + IsDetected: bool
+        + LogType: int
+        + Emotions: string
+        + DominantEmotion: string
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+    }
+    class SearchResult <<DTO>> {
+        + Result: object
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+}
+
+package "Enums" {
+    enum LogType {
+        Login
+        Logout
+        StartExam
+        SubmitExam
+        Warning
+    }
+}
+
+' Relationships
+FaceCaptureController ..> IFaceCaptureService : <<uses>>
+FaceCaptureController ..> FaceCaptureSearchVM : <<uses>>
+IFaceCaptureService <|.. FaceCaptureService
+FaceCaptureService ..> IFaceCaptureRepository : <<uses>>
+FaceCaptureService ..> IStudentExamRepository : <<uses>>
+FaceCaptureService ..> IUserRepository : <<uses>>
+FaceCaptureService ..> FaceCaptureSearchVM : <<uses>>
+FaceCaptureService ..> SearchResult : <<returns>>
+FaceCaptureService ..> FaceCaptureVM : <<maps to>>
+FaceCaptureService ..> CaptureImages : <<maps to>>
+FaceCaptureSearchVM --|> SearchRequestVM : <<inherits>>
+FaceCaptureSearchVM ..> LogType : <<uses>>
+FaceCaptureVM o-- CaptureImages : <<contains>>
+SearchResult o-- FaceCaptureVM : <<contains>>
+
+@enduml

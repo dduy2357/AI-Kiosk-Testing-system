@@ -1,0 +1,67 @@
+@startuml
+skinparam backgroundColor #eaf3fc
+skinparam packageBorderColor #b3c6e7
+skinparam packageBackgroundColor #eaf3fc
+skinparam packageTitleColor #1a355e
+skinparam rectangle {
+  BackgroundColor #eaf3fc
+  BorderColor #b3c6e7
+  FontColor #1a355e
+}
+skinparam linetype ortho
+
+package "DPMS_API" {
+
+  package "Middlewares" as PKG_MW {}
+
+  package "Interfaces" as PKG_IF {
+    package "Services" as PKG_IF_SV {}
+    package "Repositories" as PKG_IF_RE {}
+  }
+
+  package "Utils" as PKG_UT {}
+
+  package "Controllers" as PKG_CT {
+    rectangle "Consent Controller" as CT_CONSENT
+    rectangle "DPIA Controller" as CT_DPIA
+    rectangle "External System Controller" as CT_EXTSYS
+  }
+
+  package "Services" as PKG_SV {
+    rectangle "Consent Service" as SV_CONSENT
+    rectangle "DPIA Service" as SV_DPIA
+    rectangle "External System Service" as SV_EXTSYS
+  }
+
+  package "Repositories" as PKG_RE {
+    rectangle "Consent Repository" as RE_CONSENT
+    rectangle "DPIA Repository" as RE_DPIA
+    rectangle "External System Repository" as RE_EXTSYS
+  }
+
+  package "AuthPolicies" as PKG_AP {}
+
+  package "ViewModels" as PKG_VM {}
+
+  package "Model" as PKG_MD {
+    rectangle "Consent" as MD_CONSENT
+    rectangle "DPIA" as MD_DPIA
+    rectangle "External System" as MD_EXTSYS
+  }
+}
+
+' Relationships
+PKG_IF_SV -[dashed,thickness=2,label="Access"]-> PKG_SV
+PKG_IF_RE -[dashed,thickness=2,label="Access"]-> PKG_RE
+PKG_CT -[dashed,thickness=2,label="Access"]-> PKG_SV
+PKG_SV -[dashed,thickness=2,label="Access"]-> PKG_RE
+
+PKG_IF_SV -[dotted,label="Import"]-> PKG_CT
+PKG_IF_RE -[dotted,label="Import"]-> PKG_SV
+PKG_UT -[dotted,label="Import"]-> PKG_RE
+PKG_CT -[dotted,label="Import"]-> PKG_VM
+PKG_CT -[dotted,label="Import"]-> PKG_MD
+PKG_SV -[dotted,label="Import"]-> PKG_MD
+PKG_RE -[dotted,label="Import"]-> PKG_MD
+
+@enduml 

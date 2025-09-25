@@ -1,0 +1,54 @@
+@startuml
+package #FFFF99 {
+  title DesktopApp
+
+  package Constants #FFFF99 {
+    package Common #FFFF99
+    package KeyCodes #FFFF99
+  }
+
+  package Helpers #FFFF99 {
+    package BatterySetting #FFFF99
+    package DeviceInfo #FFFF99
+    package ExamEventHandler #FFFF99
+    package ScreenCaptureHelper #FFFF99
+    package TimeSetting #FFFF99
+    package VirtualMachineDetector #FFFF99
+    package WifiSetting #FFFF99
+  }
+
+  package Interops #FFFF99 {
+    package KeyboardHook #FFFF99
+    package MonitorWatcher #FFFF99
+    package MouseHook #FFFF99
+    package ProcessMonitor #FFFF99
+    package ScreenLockManager #FFFF99
+    package TouchGesture #FFFF99
+    package WindowManager #FFFF99
+  }
+
+  package Models #FFFF99 {
+    package ApiResponse #FFFF99
+    package ConfigModel #FFFF99
+    package MessageEvent #FFFF99
+  }
+
+  package Resources #FFFF99 {
+    package ButtonStyles #FFFF99
+    package logo #FFFF99
+  }
+
+  package Services #FFFF99 {
+    package ApiService #FFFF99
+    package ConfigurationService #FFFF99
+    package MonitoringService #FFFF99
+  }
+
+  ' Relationships
+  Services ..> Models : <<import>>
+  Services ..> Helpers : <<access>>
+  Services ..> Interops : <<import>>
+  Helpers ..> Constants : <<import>>
+  Resources ..> Models : <<import>>
+}
+@enduml

@@ -1,0 +1,90 @@
+@startuml
+title View Exam Supervisors Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonViewSupervisors" as UI <<boundary>>
+control "ExamSupervisorController" as Controller <<controller>>
+participant ":ExamSupervisorService" as Service <<service>>
+
+entity "userRepository" as UserRepo <<repository>>
+entity "subjectRepository" as SubjRepo <<repository>>
+
+database "Database" as DB
+
+== View Exam Supervisors ==
+
+Client -> UI: Request view supervisors
+activate UI
+UI -> Controller: GET /get-supervisors (SearchRequestVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetSupervisors(search)
+  activate Service
+
+  '--- Authorization ---
+  Service -> UserRepo: CanViewSupervisors(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check lecturer/admin permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt Not allowed
+    Service --> Controller: 403 Forbidden { message: "You do not have permission to view supervisors." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    '--- Count supervisors (role != Student, status=Active, filters) ---
+    Service -> UserRepo: CountSupervisors(search)
+    activate UserRepo
+    UserRepo -> DB: [SQL: COUNT(*) FROM Users JOIN Roles ... WHERE Role IN (Lecture,Admin) AND Status=Active AND <TextSearch?>]
+    DB --> UserRepo: total
+    UserRepo --> Service: total
+    deactivate UserRepo
+
+    '--- Get paged supervisors (basic fields) ---
+    Service -> UserRepo: GetSupervisors(search)
+    activate UserRepo
+    UserRepo -> DB: [SQL: SELECT UserId, FullName, UserCode, Email, SubjectIds... WHERE same filters ORDER BY FullName LIMIT/OFFSET]
+    DB --> UserRepo: rows (users)
+    UserRepo --> Service: users
+    deactivate UserRepo
+
+    alt No users
+      Service --> Controller: 200 OK { data: empty, total=0 }
+      deactivate Service
+      Controller --> UI: 200 OK
+      deactivate Controller
+      UI --> Client: Show empty list
+      deactivate UI
+    else Some users
+      '--- (Optional) load subject names for display ---
+      opt Need subject names
+        Service -> SubjRepo: GetByIds(distinctSubjectIds)
+        activate SubjRepo
+        SubjRepo -> DB: [SQL: SELECT SubjectId, SubjectName WHERE SubjectId IN (...)]
+        DB --> SubjRepo: subjects
+        SubjRepo --> Service: subjects
+        deactivate SubjRepo
+      end opt
+
+      Service -> Service: Map to UserSupervisorVM & paging (SearchResult)
+      Service --> Controller: 200 OK { data: SearchResult }
+      deactivate Service
+      Controller --> UI: 200 OK { success: true, data }
+      deactivate Controller
+      UI --> Client: Display supervisors list
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

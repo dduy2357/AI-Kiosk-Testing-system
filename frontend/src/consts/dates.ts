@@ -1,0 +1,16 @@
+export enum DateTimeFormat {
+  DateTime = 'YYYY-MM-DD HH:mm:ss',
+  Date = 'YYYY-MM-DD',
+  Time = 'HH:mm',
+  MonthYear = 'MM/YYYY',
+  Year = 'YYYY',
+  DayMonthYear = 'DD/MM/YYYY HH:mm',
+  FullDateTime = 'dddd, MMMM Do YYYY, h:mm:ss a',
+  ShortDateTime = 'MM/DD/YYYY, h:mm a',
+  DateTimeWithTimezone = 'DD/MM/YYYY HH:mm',
+  MDYFormat = 'MM/DD/YYYY',
+  VNFormat = 'DD/MM/YYYY',
+  MinuteFormat = 'mm:ss',
+  HourMinuteFormat = 'HH:mm',
+  HourMinuteSecondFormat = 'HH:mm:ss',
+}

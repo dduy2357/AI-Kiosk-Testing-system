@@ -1,0 +1,84 @@
+@startuml
+title View Violation Record — Sequence Diagram
+
+actor "User" as Client
+boundary ":ViolationUI" as UI <<boundary>>
+control ":StudentViolationController" as Controller <<controller>>
+participant ":StudentViolationService" as Service <<service>>
+entity "StudentViolationRepository" as ViolRepo <<repository>>
+database "DB"
+
+== View Violation Record ==
+
+Client -> UI: Open page / Search
+activate UI
+UI -> Controller: GET /violations (SearchStudentViolation)
+activate Controller
+
+alt Not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+
+else Authenticated
+  Controller -> Service: GetAll(search, userId)
+  activate Service
+
+  ' --- Auth (short SQL) ---
+  Service -> DB: SELECT 1 FROM UserRoles\nWHERE UserId=? AND Role IN('Admin','Supervisor') LIMIT 1
+  DB --> Service: 1 | null
+
+  alt Not allowed
+    Service --> Controller: 403 Forbidden
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+
+  else Allowed
+    alt search.StudentExamId is blank
+      Service --> Controller: 404 NotFound "StudentExamId required"
+      deactivate Service
+      Controller --> UI: 404 NotFound
+      deactivate Controller
+      UI --> Client: Show validation error
+      deactivate UI
+
+    else StudentExamId provided
+      ' --- Count ---
+      Service -> ViolRepo: Count(search)
+      activate ViolRepo
+      ViolRepo -> DB: SELECT COUNT(*) FROM StudentViolations\nWHERE StudentExamId=? AND (? IS NULL OR Message LIKE ?)
+      DB --> ViolRepo: total
+      ViolRepo --> Service: total
+      deactivate ViolRepo
+
+      ' --- Page data ---
+      Service -> ViolRepo: GetViolations(search)
+      activate ViolRepo
+      ViolRepo -> DB: SELECT v.Id,v.Message,v.CreatedAt,s.Email\nFROM StudentViolations v\nJOIN StudentExams se ON se.Id=v.StudentExamId\nJOIN Students s ON s.Id=se.StudentId\nWHERE v.StudentExamId=? AND (? IS NULL OR v.Message LIKE ?)\nORDER BY v.CreatedAt DESC LIMIT ? OFFSET ?
+      DB --> ViolRepo: rows
+      ViolRepo --> Service: list
+      deactivate ViolRepo
+
+      alt total = 0
+        Service --> Controller: 404 NotFound "No violations"
+        deactivate Service
+        Controller --> UI: 404 NotFound
+        deactivate Controller
+        UI --> Client: Show not found
+        deactivate UI
+      else Found
+        Service --> Controller: 200 OK { data: SearchResult }
+        deactivate Service
+        Controller --> UI: 200 OK
+        deactivate Controller
+        UI --> Client: Render table
+        deactivate UI
+      end
+    end
+  end
+end
+@enduml

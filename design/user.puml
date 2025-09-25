@@ -1,0 +1,65 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 80
+skinparam ranksep 100
+
+' Cấu hình màu sắc cho actors
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor darkblue
+  FontColor darkblue
+  FontSize 12
+}
+
+skinparam usecase {
+  BackgroundColor yellow
+  BorderColor darkgreen
+  FontColor darkgreen
+  FontSize 10
+}
+
+skinparam rectangle {
+  BackgroundColor lightyellow
+  BorderColor orange
+  FontColor darkorange
+  FontSize 14
+  FontStyle bold
+}
+
+skinparam arrow {
+  Color darkblue
+  FontColor darkblue
+}
+
+together {
+  actor Guest as "Guest"
+  actor User as "User"
+  actor GoogleAuth as "Google Auth"
+}
+
+rectangle "AKTs System" {
+  (View Profile) as UC1
+  (Send Feedback) as UC2
+  (Logout) as UC5
+  (Login) as UC10
+  (View Notifications) as UC6
+  (Mark Notification) as UC8
+  (View Notification Details) as UC9
+  (SSO) as UC11
+}
+
+Guest <|-d- User 
+
+User -- UC1
+User -- UC2
+User -- UC5
+User -- UC6
+User -- UC10
+
+UC8 .u.> UC6 : <<extend>>
+UC9 .u.> UC6 : <<extend>>
+
+UC10 .d.> UC11 : <<extend>>
+GoogleAuth -- UC11
+@enduml

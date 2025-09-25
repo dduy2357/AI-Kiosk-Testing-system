@@ -1,0 +1,155 @@
+@startuml
+title Extend Exam Duration Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+' Controllers
+package "Controllers" {
+    class MonitoringController <<Controller>> {
+        - _monitoringService: IMonitoringService
+        + AddStudentExtraTime(time: StudentExamExtraTime): Task<IActionResult>
+    }
+}
+
+' Services
+package "Services" {
+    interface IMonitoringService <<Interface>> {
+        + AddStudentExtraTime(time: StudentExamExtraTime, usertoken: string): Task<string>
+    }
+    class MonitoringService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        - _monitoringSubject: IMonitoringSubject
+        + AddStudentExtraTime(time: StudentExamExtraTime, usertoken: string): Task<string>
+    }
+}
+
+' Subject
+package "Subject" {
+    interface IMonitoringSubject <<Interface>> {
+        + Attach(observer: IMonitoringObserver)
+        + Detach(observer: IMonitoringObserver)
+        + Notify(time: StudentExamExtraTime, studentExam, userId: string): Task
+    }
+
+    class MonitoringSubject <<Subject>> {
+        - observers: List<IMonitoringObserver>
+        + Attach(observer: IMonitoringObserver)
+        + Detach(observer: IMonitoringObserver)
+        + Notify(time: StudentExamExtraTime, studentExam, userId: string): Task
+    }
+}
+
+' Observer
+package "Observer" {
+    interface IMonitoringObserver <<Interface>> {
+        + OnExtraTimeAdded(time: StudentExamExtraTime, studentExam, userId: string): Task
+    }
+
+    class LoggerObserver <<Observer>> {
+        - lastLogStatus: LogStatus
+        - lastLogTime: DateTime
+        + OnExtraTimeAdded(...)
+    }
+
+    class TimerDisplayObserver <<Observer>> {
+        - lastDisplayUpdateTime: DateTime
+        - isDisplaySynced: bool
+        + OnExtraTimeAdded(...)
+    }
+
+    IMonitoringObserver <|.. LoggerObserver
+    IMonitoringObserver <|.. TimerDisplayObserver
+
+    MonitoringSubject --> LoggerObserver : calls OnExtraTimeAdded()
+    MonitoringSubject --> TimerDisplayObserver : calls OnExtraTimeAdded()
+}
+
+' Repositories
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetStudentExamWithExamUser(studentExamId: string, status: StudentExamStatus): Task<StudentExam>
+        + Update(studentExam: StudentExam): Task
+    }
+
+    interface IUnitOfWork {
+        + StudentExamRepository: IStudentExamRepository
+        + CompleteAsync(): Task<int>
+    }
+}
+
+' Models & DTOs
+package "Models & DTOs" {
+    class StudentExamExtraTime <<DTO>> {
+        + StudentExamId: string
+        + ExtraMinutes: int
+        + Status: StudentExamStatus
+    }
+
+    class AddUserLogVM <<DTO>> {
+        + ActionType: string
+        + UserId: string
+        + Description: string
+        + Metadata: string
+        + ObjectId: string
+        + Status: int
+    }
+}
+
+' Enums
+package "Enums" {
+    enum LogStatus {
+        Success
+        Failed
+    }
+
+    enum StudentExamStatus {
+        InProgress
+        Submitted
+    }
+}
+
+' Relationships
+MonitoringController ..> IMonitoringService : uses
+MonitoringController ..> StudentExamExtraTime : uses
+IMonitoringService <|.. MonitoringService : implements
+MonitoringService ..> IUnitOfWork : uses
+MonitoringService ..> IMonitoringSubject : notifies
+MonitoringService ..> StudentExamExtraTime : uses
+IUnitOfWork ..> IStudentExamRepository : contains
+StudentExamExtraTime ..> StudentExamStatus : uses
+AddUserLogVM ..> LogStatus : uses
+IMonitoringSubject o--> IMonitoringObserver : observers *
+
+@enduml

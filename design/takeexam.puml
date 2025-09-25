@@ -1,0 +1,119 @@
+@startuml
+' Class Diagram for Take Exam Feature (sát code thực tế GetExamDetail, bỏ Entities)
+
+title Take Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _iService: IExamService
+        + GetExamDetailById(examId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + GetExamDetail(examId: string): Task<(string, ExamDetailVM?)>
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetExamDetail(examId: string): Task<(string, ExamDetailVM?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+    interface IExamQuestionRepository {
+        + GetQuestionsForExam(examId: string, totalQuestions: int, isRandom: bool)
+    }
+}
+
+package "Models & DTOs" {
+    class ExamDetailVM <<DTO>> {
+        + ExamId: string
+        + Title: string
+        + ExamType: int
+        + Duration: int
+        + StartTime: DateTime
+        + EndTime: DateTime
+        + TotalQuestions: int
+        + Questions: List<ExamQuestionVM>
+    }
+    class ExamQuestionVM <<DTO>> {
+        + QuestionId: string
+        + Content: string
+        + QuestionType: string
+        + Point: decimal
+        + Options: List<string>
+        + DifficultLevel: int
+    }
+}
+
+package "Utilities" {
+    class JsonHandler <<static>> {
+        + SafeDeserializeOptions(json: string?): List<string>
+    }
+}
+
+package "Enums" {
+    enum QuestionType {
+        Essay
+        MultipleChoice
+    }
+    enum QuestionTypeChoose {
+        Essay
+        MultipleChoice
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> ExamDetailVM : <<uses>>
+IExamService <|.. ExamService
+ExamService ..> IExamRepository : <<uses>>
+ExamService ..> IExamQuestionRepository : <<uses>>
+ExamService ..> ExamDetailVM : <<returns>>
+ExamService ..> JsonHandler : <<uses>>
+ExamService ..> QuestionType : <<uses>>
+ExamService ..> QuestionTypeChoose : <<uses>>
+ExamDetailVM o-- ExamQuestionVM : <<contains>>
+ExamQuestionVM ..> QuestionTypeChoose : <<uses>>
+
+@enduml

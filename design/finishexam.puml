@@ -1,0 +1,171 @@
+@startuml
+title Finish Student Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+  ArrowColor DarkBlue
+  FontSize 12
+}
+skinparam package {
+  BackgroundColor LightYellow
+  BorderColor DarkOrange
+  FontSize 14
+  FontStyle bold
+}
+skinparam interface {
+  BackgroundColor LightGreen
+  BorderColor DarkGreen
+  FontSize 12
+}
+skinparam enum {
+  BackgroundColor LightCyan
+  BorderColor DarkCyan
+  FontSize 12
+}
+
+' Controllers
+package "Controllers" {
+  class MonitoringController <<Controller>> {
+    - _monitoringService: IMonitoringService
+    + FinishStudentExam(finish: FinishStudentExam): TaskResult
+  }
+}
+
+' Services
+package "Services" {
+  interface IMonitoringService <<Interface>> {
+    + FinishStudentExam(finish: FinishStudentExam, usertoken: string): TaskString
+  }
+
+  class MonitoringService <<Service>> {
+    - _unitOfWork: IUnitOfWork
+    - _finishExamSubject: IFinishExamSubject
+
+    + FinishStudentExam(finish: FinishStudentExam, usertoken: string): TaskString
+  }
+}
+
+' Subject
+package "Subject" {
+  interface IFinishExamSubject <<Interface>> {
+    + Attach(observer: IFinishExamObserver): void
+    + Detach(observer: IFinishExamObserver): void
+    + Notify(finish: FinishStudentExam, studentExam: StudentExam, userId: string): Task
+  }
+
+  class FinishExamSubject <<Subject>> {
+    - observers: List
+    + Attach(observer: IFinishExamObserver): void
+    + Detach(observer: IFinishExamObserver): void
+    + Notify(finish: FinishStudentExam, studentExam: StudentExam, userId: string): Task
+  }
+}
+
+' Observer
+package "Observer" {
+  interface IFinishExamObserver <<Interface>> {
+    + OnExamFinished(finish: FinishStudentExam, studentExam: StudentExam, userId: string): Task
+  }
+
+  class LoggerObserver <<Observer>> {
+    - lastLogStatus: LogStatus
+    - lastLogTime: DateTime
+    + OnExamFinished(finish: FinishStudentExam, studentExam: StudentExam, userId: string): Task
+  }
+
+  class ScoringObserver <<Observer>> {
+    - lastScoreTime: DateTime
+    - isScoreSynced: boolean
+    + OnExamFinished(finish: FinishStudentExam, studentExam: StudentExam, userId: string): Task
+  }
+}
+
+' Repositories
+package "Repositories" {
+  interface IUnitOfWork <<Interface>> {
+    + StudentExamRepository: IStudentExamRepository
+    + StudentAnswerRepository: IStudentAnswerRepository
+    + ExamQuestionRepository: IExamQuestionRepository
+    + QuestionRepository: IQuestionRepository
+    + CompleteAsync(): TaskInt
+  }
+
+  interface IStudentExamRepository {
+    + GetStudentExamWithExamUser(studentExamId: string, status: StudentExamStatus): TaskStudentExam
+    + Update(studentExam: StudentExam): Task
+  }
+
+  interface IStudentAnswerRepository {
+    + GetByStudentExamId(examId: string): TaskList
+  }
+
+  interface IExamQuestionRepository {
+    + GetByExamAndQuestionIds(examId: string, questionIds: List): TaskList
+  }
+
+  interface IQuestionRepository {
+    + GetById(questionId: string): TaskQuestion
+  }
+}
+
+' Models & DTOs
+package "Models & DTOs" {
+  class FinishStudentExam <<DTO>> {
+    + ExamId: string
+    + StudentExamId: string
+  }
+}
+
+' Enums
+package "Enums" {
+  enum LogStatus { 
+    Success
+    Failed
+  }
+  enum StudentExamStatus { 
+    InProgress
+    Submitted
+  }
+  enum QuestionTypeChoose { 
+    Essay
+    MultipleChoice
+    TrueFalse
+    FillInTheBlank
+  }
+}
+
+' ===== Relationships (match sơ đồ Extend) =====
+MonitoringController ..> IMonitoringService : uses
+MonitoringController ..> FinishStudentExam : uses
+IMonitoringService <|.. MonitoringService : implements
+MonitoringService ..> IUnitOfWork : uses
+MonitoringService ..> FinishStudentExam : uses
+MonitoringService ..> IFinishExamSubject : notifies
+
+IFinishExamSubject <|.. FinishExamSubject : implements
+FinishExamSubject o-- IFinishExamObserver : observers
+
+FinishExamSubject --> LoggerObserver : calls OnExamFinished()
+FinishExamSubject --> ScoringObserver : calls OnExamFinished()
+
+IFinishExamObserver <|.. LoggerObserver : implements
+IFinishExamObserver <|.. ScoringObserver : implements
+IUnitOfWork o-- IStudentExamRepository : contains
+IUnitOfWork o-- IStudentAnswerRepository : contains
+IUnitOfWork o-- IExamQuestionRepository : contains
+IUnitOfWork o-- IQuestionRepository : contains
+
+FinishStudentExam ..> StudentExamStatus : uses
+LoggerObserver ..> LogStatus : uses
+@enduml

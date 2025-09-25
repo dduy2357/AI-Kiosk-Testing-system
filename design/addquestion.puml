@@ -1,0 +1,174 @@
+@startuml
+'Add Question Class Diagram + Builder Pattern
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title Add Question Class Diagram + Builder Pattern
+
+package "Controllers" {
+    class QuestionController <<Controller>> {
+        - _questionService: IQuestionService
+        + AddQuestion(request: AddQuestionRequest)
+    }
+}
+
+package "Services" {
+    interface IQuestionService <<Interface>> {
+        + AddQuestionAsync(request: AddQuestionRequest, userId: string)
+    }
+    class QuestionService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + AddQuestionAsync(request: AddQuestionRequest, userId: string)
+    }
+}
+
+package "Repositories" {
+    interface IUnitOfWork {
+        + QuestionRepository: IQuestionRepository
+        + QuestionBankRepository: IQuestionBankRepository
+        + SubjectRepository: ISubjectRepository
+        + UserRepository: IUserRepository
+        + SaveChangesAsync(): Task
+    }
+
+    interface IQuestionRepository {
+        + AddQuestion(question: Question)
+        + GetQuestionById(questionId: string)
+    }
+    interface IQuestionBankRepository {
+        + GetQuestionBankById(questionBankId: string)
+    }
+    interface ISubjectRepository {
+        + GetSubjectById(subjectId: string)
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class AddQuestionRequest <<DTO>> {
+        + QuestionBankId
+        + SubjectId
+        + Content
+        + Type
+        + DifficultLevel
+        + Point
+        + Options
+        + CorrectAnswer
+        + Explanation
+        + ObjectFile
+        + Tags
+        + Description
+    }
+    class Question <<Entity>> {
+        + QuestionId
+        + SubjectId
+        + QuestionBankId
+        + Content
+        + Type
+        + DifficultLevel
+        + Point
+        + Options
+        + CorrectAnswer
+        + Explanation
+        + ObjectFile
+        + Status
+        + CreateUser
+        + UpdateUser
+        + CreatedAt
+        + UpdatedAt
+    }
+}
+
+package "Builder" {
+    class QuestionDirector {
+        +Construct(builder: QuestionBuilder, request: AddQuestionRequest)
+    }
+    abstract class QuestionBuilder {
+        +SetContent(content: string)
+        +SetType(type: string)
+        +SetDifficultLevel(level: int)
+        +SetPoint(point: float)
+        +SetOptions(options: list)
+        +SetCorrectAnswer(answer: string)
+        +SetExplanation(explanation: string)
+        +SetObjectFile(file: object)
+        +SetTags(tags: list)
+        +SetDescription(description: string)
+    }
+    class MultipleChoiceQuestionBuilder {
+        +SetOptions(options: list)
+        +SetCorrectAnswer(answer: string)
+        +GetResult(): Question
+        - question: Question
+    }
+    class EssayQuestionBuilder {
+        +SetGuideAnswer(guide: string)
+        +GetResult(): Question
+        - question: Question
+    }
+}
+
+' Relationships
+QuestionController ..> IQuestionService : <<uses>>
+QuestionController ..> AddQuestionRequest : <<uses>>
+IQuestionService <|.. QuestionService : <<implements>>
+QuestionService ..> IUnitOfWork : <<uses>>
+QuestionService ..> AddQuestionRequest : <<uses>>
+QuestionService ..> Question : <<creates>>
+IQuestionRepository ..> Question : <<persists>>
+AddQuestionRequest ..> Question : <<maps to>>
+
+' IUnitOfWork contains Repositories
+IUnitOfWork o-- IQuestionRepository
+IUnitOfWork o-- IQuestionBankRepository
+IUnitOfWork o-- ISubjectRepository
+IUnitOfWork o-- IUserRepository
+
+' Builder pattern relationships
+QuestionDirector o-- QuestionBuilder : builder
+QuestionBuilder <|-- MultipleChoiceQuestionBuilder
+QuestionBuilder <|-- EssayQuestionBuilder
+MultipleChoiceQuestionBuilder ..> Question
+EssayQuestionBuilder ..> Question
+QuestionDirector ..> AddQuestionRequest : <<uses>>
+
+note bottom of QuestionDirector
+if request.Type == "MultipleChoice"
+    builder.SetOptions()
+    builder.SetCorrectAnswer()
+    builder.GetResult()
+else if request.Type == "Essay"
+    builder.SetGuideAnswer()
+    builder.GetResult()
+end note
+
+@enduml

@@ -1,0 +1,77 @@
+@startuml
+' Simplified View Exam Guidelines Class Diagram (theo code mới GetExamGuideLinesAsync)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title View Exam Guidelines Class Diagram
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _studentExamService: IStudentExamService
+        + ViewExamGuideline(examId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + GetExamGuideLinesAsync(examId: string, userId: string): Task<(bool, string, string?)>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetExamGuideLinesAsync(examId: string, userId: string): Task<(bool, string, string?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class Exam {
+        + ExamId: string
+        + GuildeLines: string
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> IExamRepository : <<uses>>
+StudentExamService ..> Exam : <<returns>>
+
+@enduml

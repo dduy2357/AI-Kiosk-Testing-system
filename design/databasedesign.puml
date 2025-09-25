@@ -1,0 +1,449 @@
+@startuml Database Design - Online Examination System
+
+!define table(x) class x << (T,#AAFFAA) >>
+!define primary_key(x) <b>x</b>
+!define foreign_key(x) <i>x</i>
+
+title Database Design - Online Examination System (SEP490_AKTs)
+left to right direction
+skinparam linetype ortho
+skinparam class {
+    BackgroundColor #FFFACD
+    BorderColor Black
+}
+' User Management Tables
+table(Users) {
+  primary_key(UserId) : nvarchar(36)
+  UserCode : nvarchar(255)
+  FullName : nvarchar(255)
+  Email : nvarchar(255)
+  Password : nvarchar(255)
+  GoogleId : nvarchar(255)
+  AvatarUrl : nvarchar(max)
+  Sex : int
+  Dob : datetime2(7)
+  Phone : nvarchar(450)
+  Address : nvarchar(max)
+  foreign_key(CampusId) : nvarchar(36)
+  foreign_key(DepartmentId) : nvarchar(36)
+  foreign_key(PositionId) : nvarchar(36)
+  foreign_key(MajorId) : nvarchar(36)
+  foreign_key(SpecializationId) : nvarchar(36)
+  Status : int
+  LastLogin : datetime2(7)
+  LastLoginIp : nvarchar(max)
+  CreateAt : datetime2(7)
+  UpdateAt : datetime2(7)
+  CreateUser : nvarchar(max)
+  UpdateUser : nvarchar(max)
+}
+
+table(Campuses) {
+  primary_key(Id) : nvarchar(36)
+  Code : nvarchar(max)
+  Name : nvarchar(max)
+  Description : nvarchar(max)
+  CreateAt : datetime2(7)
+  UpdateAt : datetime2(7)
+}
+
+table(Departments) {
+  primary_key(Id) : nvarchar(36)
+  Name : nvarchar(100)
+  Code : nvarchar(100)
+  Description : nvarchar(255)
+  CreateAt : datetime2(7)
+  UpdateAt : datetime2(7)
+}
+
+table(Positions) {
+  primary_key(Id) : nvarchar(36)
+  Name : nvarchar(max)
+  Code : nvarchar(max)
+  Description : nvarchar(max)
+  foreign_key(DepartmentId) : nvarchar(36)
+  CreateAt : datetime2(7)
+  UpdateAt : datetime2(7)
+}
+
+table(Majors) {
+  primary_key(Id) : nvarchar(36)
+  Name : nvarchar(100)
+  Code : nvarchar(100)
+  Description : nvarchar(max)
+  CreateAt : datetime2(7)
+  UpdateAt : datetime2(7)
+}
+
+table(Specializations) {
+  primary_key(Id) : nvarchar(36)
+  Name : nvarchar(100)
+  Description : nvarchar(500)
+  CreatedDate : datetime2(7)
+  UpdatedDate : datetime2(7)
+  Status : bit
+}
+
+' Role and Permission Tables
+table(Roles) {
+  primary_key(Id) : int
+  Name : nvarchar(100)
+  Description : nvarchar(max)
+  IsActive : bit
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+table(UserRoles) {
+  foreign_key(UserId) : nvarchar(36)
+  foreign_key(RoleId) : int
+}
+
+table(PermissionCategories) {
+  primary_key(CategoryID) : nvarchar(36)
+  Description : nvarchar(200)
+}
+
+table(Permissions) {
+  primary_key(Id) : nvarchar(36)
+  Name : nvarchar(100)
+  Action : nvarchar(100)
+  Resource : nvarchar(200)
+  Description : nvarchar(200)
+  IsActive : bit
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  foreign_key(CategoryID) : nvarchar(36)
+}
+
+table(RolePermissions) {
+  foreign_key(RoleId) : int
+  foreign_key(PermissionId) : nvarchar(36)
+}
+
+' Academic Structure Tables
+table(Classes) {
+  primary_key(ClassId) : nvarchar(36)
+  ClassCode : nvarchar(100)
+  Description : nvarchar(500)
+  CreatedBy : nvarchar(36)
+  IsActive : bit
+  StartDate : datetime2(7)
+  EndDate : datetime2(7)
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+table(Subjects) {
+  primary_key(SubjectId) : nvarchar(36)
+  SubjectName : nvarchar(500)
+  SubjectDescription : nvarchar(500)
+  SubjectCode : nvarchar(100)
+  SubjectContent : text
+  Status : bit
+  CreatedDate : datetime2(7)
+  UpdatedDate : datetime2(7)
+  Credits : int
+}
+
+table(Rooms) {
+  primary_key(RoomId) : nvarchar(36)
+  foreign_key(ClassId) : nvarchar(36)
+  foreign_key(SubjectId) : nvarchar(36)
+  Description : nvarchar(500)
+  Capacity : int
+  IsActive : bit
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  RoomCode : nvarchar(50)
+}
+
+table(RoomUsers) {
+  primary_key(RoomUserId) : nvarchar(36)
+  foreign_key(RoomId) : nvarchar(36)
+  foreign_key(UserId) : nvarchar(36)
+  foreign_key(RoleId) : int
+  Status : int
+  JoinTime : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+' Question and Exam Management Tables
+table(QuestionBanks) {
+  primary_key(QuestionBankId) : nvarchar(36)
+  foreign_key(SubjectId) : nvarchar(36)
+  foreign_key(CreateUserId) : nvarchar(36)
+  Title : nvarchar(450)
+  Description : nvarchar(max)
+  Status : int
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+table(Questions) {
+  primary_key(QuestionId) : nvarchar(36)
+  foreign_key(SubjectId) : nvarchar(36)
+  foreign_key(QuestionBankId) : nvarchar(36)
+  Content : nvarchar(max)
+  Type : int
+  DifficultLevel : int
+  Point : decimal(4,2)
+  Options : nvarchar(max)
+  CorrectAnswer : nvarchar(max)
+  Explanation : nvarchar(max)
+  ObjectFile : nvarchar(max)
+  Status : int
+  foreign_key(CreateUser) : nvarchar(36)
+  foreign_key(UpdateUser) : nvarchar(36)
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+table(Exams) {
+  primary_key(ExamId) : nvarchar(36)
+  foreign_key(RoomId) : nvarchar(36)
+  Title : nvarchar(255)
+  Description : nvarchar(max)
+  Duration : int
+  TotalPoints : decimal(18,2)
+  StartTime : datetime2(7)
+  EndTime : datetime2(7)
+  MaxScore : int
+  TotalQuestions : int
+  IsShowResult : bit
+  IsShowCorrectAnswer : bit
+  Status : int
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  foreign_key(CreateUser) : nvarchar(36)
+  foreign_key(UpdateUser) : nvarchar(36)
+}
+
+table(ExamQuestions) {
+  primary_key(ExamQuestionId) : nvarchar(36)
+  foreign_key(ExamId) : nvarchar(36)
+  foreign_key(QuestionId) : nvarchar(36)
+  Points : decimal(18,2)
+  CreatedAt : datetime2(7)
+  foreign_key(ExamId1) : nvarchar(36)
+}
+
+' Student Exam and Answer Tables
+table(StudentExams) {
+  primary_key(StudentExamId) : nvarchar(36)
+  foreign_key(StudentId) : nvarchar(36)
+  foreign_key(ExamId) : nvarchar(36)
+  StartTime : datetime2(7)
+  SubmitTime : datetime2(7)
+  Score : decimal(18,2)
+  TotalQuestions : int
+  Status : int
+  IpAddress : nvarchar(max)
+  BrowserInfo : nvarchar(max)
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+table(StudentAnswers) {
+  primary_key(StudentAnswerId) : nvarchar(36)
+  foreign_key(StudentExamId) : nvarchar(36)
+  foreign_key(QuestionId) : nvarchar(36)
+  UserAnswer : nvarchar(max)
+  IsCorrect : bit
+  PointsEarned : decimal(18,2)
+  TimeSpent : int
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+' Monitoring and Security Tables
+table(ExamLogs) {
+  primary_key(ExamLogId) : nvarchar(36)
+  foreign_key(StudentExamId) : nvarchar(36)
+  foreign_key(UserId) : nvarchar(36)
+  ActionType : nvarchar(max)
+  Description : nvarchar(500)
+  IpAddress : nvarchar(50)
+  BrowserInfo : nvarchar(255)
+  ScreenshotPath : nvarchar(500)
+  LogType : int
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  DeviceId : nvarchar(255)
+  DeviceUsername : nvarchar(255)
+}
+
+table(UserLogs) {
+  primary_key(LogId) : nvarchar(36)
+  foreign_key(UserId) : nvarchar(36)
+  ActionType : nvarchar(100)
+  ObjectId : nvarchar(36)
+  IpAddress : nvarchar(50)
+  BrowserInfo : nvarchar(255)
+  Description : nvarchar(max)
+  Status : int
+  Metadata : nvarchar(max)
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+table(ProhibitedApps) {
+  primary_key(AppId) : nvarchar(36)
+  AppName : nvarchar(100)
+  ProcessName : nvarchar(200)
+  Description : nvarchar(500)
+  AppIconUrl : nvarchar(max)
+  IsActive : bit
+  RiskLevel : int
+  Category : int
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  CreatedUser : nvarchar(max)
+  UpdatedUser : nvarchar(max)
+}
+
+table(DisabledKeys) {
+  primary_key(KeyId) : nvarchar(36)
+  KeyCode : nvarchar(100)
+  KeyCombination : nvarchar(max)
+  Description : nvarchar(500)
+  RiskLevel : int
+  IsActive : bit
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  CreatedUser : nvarchar(max)
+  UpdatedUser : nvarchar(max)
+}
+
+table(ExamOtps) {
+  primary_key(ExamOtpId) : nvarchar(36)
+  foreign_key(ExamId) : nvarchar(36)
+  OtpCode : int
+  TimeValid : int
+  foreign_key(CreatedBy) : nvarchar(36)
+  CreatedAt : datetime2(7)
+  ExpiredAt : datetime2(7)
+}
+
+table(Notifications) {
+  primary_key(NotifyId) : nvarchar(36)
+  foreign_key(SendToId) : nvarchar(36)
+  foreign_key(CreatedBy) : nvarchar(36)
+  Message : nvarchar(max)
+  IsRead : bit
+  Type : int
+  CreatedAt : datetime2(7)
+}
+
+table(Feedback) {
+  primary_key(Id) : nvarchar(36)
+  Title : nvarchar(255)
+  Content : nvarchar(max)
+  foreign_key(UserId) : nvarchar(36)
+  CreatedAt : datetime2(7)
+}
+
+table(Violation) {
+  primary_key(Id) : nvarchar(36)
+  Name : nvarchar(255)
+  Description : nvarchar(max)
+  IsActive : bit
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  foreign_key(UserId) : nvarchar(36)
+}
+
+table(QuestionShares) {
+  primary_key(QuestionShareId) : nvarchar(36)
+  foreign_key(QuestionBankId) : nvarchar(36)
+  foreign_key(SharedWithUserId) : nvarchar(36)
+  AccessMode : int
+}
+
+table(FaceCapture) {
+  primary_key(CaptureId) : nvarchar(36)
+  foreign_key(StudentExamId) : nvarchar(36)
+  ImageUrl : nvarchar(max)
+  Description : nvarchar(max)
+  LogType : int
+  Emotions : nvarchar(max)
+  DominantEmotion : nvarchar(100)
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+  IsDetected : bit
+}
+
+table(ExamSupervisors) {
+  primary_key(ExamSupervisorId) : nvarchar(36)
+  foreign_key(SupervisorId) : nvarchar(36)
+  foreign_key(ExamId) : nvarchar(36)
+  foreign_key(CreatedBy) : nvarchar(36)
+  Note : nvarchar(max)
+  CreatedAt : datetime2(7)
+  UpdatedAt : datetime2(7)
+}
+
+' System Tables
+' Relationships - User Management
+Users ||--o{ UserRoles : "has"
+Users ||--o{ UserLogs : "generates"
+Users ||--o{ ExamLogs : "generates"
+Users ||--o{ StudentExams : "takes"
+Users ||--o{ Exams : "creates"
+Users ||--o{ Exams : "updates"
+Users ||--o{ Questions : "creates"
+Users ||--o{ Questions : "updates"
+Users ||--o{ QuestionBanks : "creates"
+Users ||--o{ RoomUsers : "participates"
+Users ||--o{ Notifications : "receives"
+Users ||--o{ Notifications : "creates"
+Users ||--o{ Feedback : "writes"
+Users ||--o{ Violation : "commits"
+QuestionBanks ||--o{ QuestionShares : "shared"
+Users ||--o{ QuestionShares : "receives"
+Users ||--o{ ExamSupervisors : "supervises"
+Exams ||--o{ ExamSupervisors : "has"
+Users ||--o{ ExamSupervisors : "creates"
+
+Campuses ||--o{ Users : "belongs_to"
+Departments ||--o{ Users : "belongs_to"
+Departments ||--o{ Positions : "has"
+Positions ||--o{ Users : "holds"
+Majors ||--o{ Users : "studies"
+Specializations ||--o{ Users : "specializes_in"
+
+' Relationships - Role and Permissions
+Roles ||--o{ UserRoles : "assigned_to"
+Roles ||--o{ RolePermissions : "has"
+Roles ||--o{ RoomUsers : "assigned_in"
+Permissions ||--o{ RolePermissions : "assigned_to"
+PermissionCategories ||--o{ Permissions : "contains"
+
+' Relationships - Academic Structure
+Classes ||--o{ Rooms : "has"
+Subjects ||--o{ Rooms : "taught_in"
+Subjects ||--o{ Questions : "contains"
+Subjects ||--o{ QuestionBanks : "has"
+Rooms ||--o{ RoomUsers : "contains"
+Rooms ||--o{ Exams : "hosts"
+
+' Relationships - Question and Exam Management
+QuestionBanks ||--o{ Questions : "contains"
+Exams ||--o{ ExamQuestions : "includes"
+Exams ||--o{ StudentExams : "taken_by"
+Questions ||--o{ ExamQuestions : "used_in"
+Questions ||--o{ StudentAnswers : "answered_in"
+Exams ||--o{ ExamOtps : "has"
+QuestionBanks ||--o{ QuestionShares : "shared"
+Users ||--o{ QuestionShares : "receives"
+
+' Relationships - Student Exam and Answers
+StudentExams ||--o{ StudentAnswers : "contains"
+StudentExams ||--o{ ExamLogs : "generates"
+StudentExams ||--o{ FaceCapture : "has"
+
+' Relationships - Monitoring and Security
+StudentExams ||--o{ ExamLogs : "monitored_by"
+Users ||--o{ ExamOtps : "creates"
+
+@enduml

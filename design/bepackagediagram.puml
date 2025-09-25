@@ -1,0 +1,44 @@
+@startuml
+skinparam packageBackgroundColor #FFF9DB
+title Package Diagram - Backend
+left to right direction
+skinparam linetype ortho
+skinparam PackagePadding 30
+skinparam HorizontalSpacing 50
+skinparam NodeMargin 30
+skinparam RankSep 100
+skinparam LayoutHorizontalSpacing 50
+
+package "Backend" {
+    package "Attributes" {}
+    package "Cached" {}
+    package "Common" {}
+    package "Configurations" {}
+    package "Controllers" {
+         together {
+            package "Exam Controller" {}
+            package "Question Controller" {}
+            package "Question Bank Controller" {}
+        }
+    }
+    package "Filter" {}
+    package "Helper" {}
+    package "Models" {}
+    package "Services" {}
+    package "Utilities" {}
+    package "ViewModels" {}
+
+    ' Ví dụ các mối quan hệ import/access (bạn cần chỉnh lại theo thực tế code):
+    "Controllers" ..> "Services" : import
+    "Controllers" ..> "Models" : access
+    "Services" ..> "Models" : access
+    "Services" ..> "Helper" : import
+    "Services" ..> "Utilities" : access
+    "Models" ..> "Attributes" : import
+    "Models" ..> "Cached" : access
+    "Configurations" ..> "Common" : import
+    "Controllers" ..> "ViewModels" : access
+    "Filter" ..> "Common" : import
+}
+
+@enduml

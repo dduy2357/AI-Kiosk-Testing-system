@@ -1,0 +1,136 @@
+@startuml
+title Assign Exam Supervisor Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonAssignSupervisor" as UI <<boundary>>
+control "ExamSupervisorController" as Controller <<controller>>
+participant ":ExamSupervisorService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "examRepository" as ExamRepo <<repository>>
+entity "userRepository" as UserRepo <<repository>>
+entity "examSupervisorRepository" as EsRepo <<repository>>
+
+database "Database" as DB
+
+== Assign Exam Supervisor ==
+
+Client -> UI: Submit assign supervisor form
+activate UI
+UI -> Controller: POST /assign-supervisor (EditExamSupervisorVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: AssignSupervisor(input, userId)
+  activate Service
+
+  '--- Validate exam exists ---
+  Service -> ExamRepo: GetById(input.ExamId)
+  activate ExamRepo
+  ExamRepo -> DB: [SQL: SELECT exam by id]
+  DB --> ExamRepo: exam|null
+  ExamRepo --> Service: exam|null
+  deactivate ExamRepo
+
+  alt Exam not found
+    Service --> Controller: "Exam not found."
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show not found
+    deactivate UI
+  else Exam found
+    '--- Resolve users & validate roles (must not be Student) ---
+    Service -> UserRepo: GetByIds(input.SupervisorIds)
+    activate UserRepo
+    UserRepo -> DB: [SQL: SELECT users WHERE Id IN (...)]
+    DB --> UserRepo: users
+    UserRepo --> Service: users
+    deactivate UserRepo
+
+    Service -> Service: Validate supervisors' roles
+    alt Some users invalid
+      Service --> Controller: "Some users are not allowed to supervise."
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show invalid supervisors
+      deactivate UI
+    else All valid
+      '--- Load existing supervisors for exam ---
+      Service -> EsRepo: GetByExamId(input.ExamId)
+      activate EsRepo
+      EsRepo -> DB: [SQL: SELECT ExamSupervisors WHERE ExamId=@id]
+      DB --> EsRepo: existing
+      EsRepo --> Service: existing
+      deactivate EsRepo
+
+      Service -> Service: Diff -> toAdd / alreadyExists
+
+      alt Nothing to add
+        Service --> Controller: "No new supervisor to add."
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show no change
+        deactivate UI
+      else Add supervisors
+        '--- Transaction ---
+        Service -> UoW: BeginTransactionAsync()
+        activate UoW
+        UoW -> DB: BEGIN
+        DB --> UoW: started
+        deactivate UoW
+
+        ' Insert new rows
+        Service -> EsRepo: AddRangeAsync(input.ExamId, toAdd)
+        activate EsRepo
+        EsRepo -> DB: [SQL: bulk INSERT ExamSupervisors]
+        DB --> EsRepo: inserted
+        EsRepo --> Service: ok
+        deactivate EsRepo
+
+        ' Decide success vs exception
+        alt Persist success
+          Service -> UoW: SaveChangesAsync()
+          activate UoW
+          UoW -> DB: SAVE
+          DB --> UoW: saved
+          deactivate UoW
+
+          Service -> UoW: CommitTransactionAsync()
+          activate UoW
+          UoW -> DB: COMMIT
+          DB --> UoW: committed
+          deactivate UoW
+
+          Service --> Controller: ("", toAdd)
+          deactivate Service
+          Controller --> UI: 200 OK { success: true, data: toAdd }
+          deactivate Controller
+          UI --> Client: Show success
+          deactivate UI
+        else Exception during persistence
+          Service -> UoW: RollbackTransactionAsync()
+          activate UoW
+          UoW -> DB: ROLLBACK
+          DB --> UoW: rolled back
+          deactivate UoW
+
+          Service --> Controller: "Error updating supervisor list."
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show error
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

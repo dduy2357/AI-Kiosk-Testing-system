@@ -1,0 +1,74 @@
+@startuml
+title View Exam Result Details Sequence Diagram 
+
+actor "User" as Client
+boundary ":HistoryUI" as UI <<boundary>>
+control "StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+
+
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "StudentAnswerRepository" as AnswerRepo <<repository>>
+entity "ExamRepository" as ExamRepo <<repository>>
+entity "QuestionRepository" as QRepo <<repository>>
+
+database "Database" as DB
+
+== View Exam Result Details ==
+
+Client -> UI: Open result details (studentExamId)
+activate UI
+UI -> Controller: GET /history-exam-detail/{studentExamId}
+activate Controller
+Controller -> Service: GetHistoryExamDetail(studentExamId, userId)
+activate Service
+
+' --- Load StudentExam (+ Exam) ---
+Service -> StuExamRepo: GetByIdAndUser(studentExamId, userId, Submitted)
+activate StuExamRepo
+StuExamRepo -> DB: [SQL] SELECT se.*, e.*\nFROM StudentExams se JOIN Exams e ON e.ExamId=se.ExamId\nWHERE se.Id=@id AND se.StudentId=@uid AND se.Status='Submitted' LIMIT 1
+DB --> StuExamRepo: studentExam | null
+StuExamRepo --> Service: studentExam | null
+deactivate StuExamRepo
+
+alt Not found
+  Service --> Controller: 400 BadRequest { message: "Exam is not found" }
+  deactivate Service
+  Controller --> UI: 400 BadRequest
+  deactivate Controller
+  UI --> Client: Show error
+  deactivate UI
+else Found
+  ' --- Get answers (+ Question) ---
+  Service -> AnswerRepo: GetWithQuestionByStudentExamId(studentExamId)
+  activate AnswerRepo
+  AnswerRepo -> DB: [SQL] SELECT sa.*, q.Content, q.CorrectAnswer, q.Point\nFROM StudentAnswers sa JOIN Questions q ON q.Id=sa.QuestionId\nWHERE sa.StudentExamId=@id ORDER BY sa.Id
+  DB --> AnswerRepo: rows
+  AnswerRepo --> Service: rows
+  deactivate AnswerRepo
+
+  ' (Optional) extra question info if needed
+  Service -> QRepo: (optional) GetByIds(...)
+  QRepo --> Service: questions
+
+  ' --- Map to VM (include AnswerDetail if IsShowResult) ---
+  Service -> Service: Build StudentExamDetailVM
+
+  Service --> Controller: 200 OK { data: StudentExamDetailVM }
+  deactivate Service
+  Controller --> UI: 200 OK { success: true, data }
+  deactivate Controller
+  UI --> Client: Render exam result details
+  deactivate UI
+end alt
+
+' --- Exception path ---
+alt Exception
+  Service --> Controller: 400 BadRequest { message: "Error loading exam result details." }
+  deactivate Service
+  Controller --> UI: 400 BadRequest
+  deactivate Controller
+  UI --> Client: Show error
+  deactivate UI
+end alt
+@enduml

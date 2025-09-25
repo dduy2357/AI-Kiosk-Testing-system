@@ -1,0 +1,117 @@
+@startuml
+' View Question Bank Detail Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Question Bank Detail Class Diagram
+
+package "Controllers" {
+    class QuestionController <<Controller>> {
+        - _questionService: IQuestionService
+        + GetListQuestion(request: QuestionRequestVM)
+    }
+}
+
+package "Services" {
+    interface IQuestionService <<Interface>> {
+        + GetListQuestionAsync(request: QuestionRequestVM, userId: string)
+    }
+    class QuestionService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetListQuestionAsync(request: QuestionRequestVM, userId: string)
+    }
+}
+
+package "Repositories" {
+    interface IQuestionRepository {
+        + GetQuestions(search: QuestionRequestVM)
+        + GetQuestionById(questionId: string)
+        + CountQuestions(search: QuestionRequestVM)
+    }
+    interface ISubjectRepository {
+        + GetSubjectById(subjectId: string)
+        + GetAllSubjects()
+    }
+    interface IQuestionBankRepository {
+        + GetQuestionBankById(questionBankId: string)
+        + GetAllQuestionBanks()
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class QuestionRequestVM <<DTO>> {
+        + Status
+        + IsMyQuestion
+        + DifficultyLevel
+        + PageSize
+        + CurrentPage
+        + TextSearch
+    }
+    class SearchResult <<DTO>> {
+        + Result
+        + TotalPage
+        + PageSize
+        + CurrentPage
+        + Total
+    }
+    class QuestionListVM <<DTO>> {
+        + QuestionId
+        + SubjectId
+        + SubjectName
+        + QuestionBankId
+        + QuestionBankName
+        + Content
+        + Type
+        + DifficultLevel
+        + Point
+        + Options
+        + CorrectAnswer
+        + Explanation
+        + ObjectFile
+        + Status
+        + CreatorId
+    }
+}
+
+' Relationships
+QuestionController ..> IQuestionService : <<uses>>
+QuestionController ..> QuestionRequestVM : <<uses>>
+IQuestionService <|.. QuestionService : <<implements>>
+QuestionService ..> IQuestionRepository : <<uses>>
+QuestionService ..> ISubjectRepository : <<uses>>
+QuestionService ..> IQuestionBankRepository : <<uses>>
+QuestionService ..> IUserRepository : <<uses>>
+QuestionService ..> SearchResult : <<returns>>
+SearchResult o-- QuestionListVM : <<contains>>
+
+@enduml

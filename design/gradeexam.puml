@@ -1,0 +1,99 @@
+@startuml
+' Simplified Grade Exam Class Diagram (giống dạng View List Role, dùng GradeExamRequest)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title Grade Exam Class Diagram
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _iService: IExamService
+        + GradeExam(request: GradeExamRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + GradeExam(request: GradeExamRequest): Task<string>
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GradeExam(request: GradeExamRequest): Task<string>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+    interface IStudentExamRepository {
+        + GetByExamId(examId: string)
+        + Update(studentExam)
+    }
+    interface IStudentAnswerRepository {
+        + GetByStudentExamId(studentExamId: string)
+        + UpdateRange(answers: List<StudentAnswer>)
+    }
+    interface IQuestionRepository {
+        + GetByIds(questionIds: List<string>)
+    }
+}
+
+package "Models & DTOs" {
+    class GradeExamRequest <<DTO>> {
+        + ExamId: string
+        + ManualScores: List<ManualScoreVM>
+    }
+    class ManualScoreVM <<DTO>> {
+        + StudentExamId: string
+        + Score: decimal
+        + Note: string
+    }
+    class GradeExamResultVM <<DTO>> {
+        + StudentExamId: string
+        + StudentId: string
+        + Score: decimal
+        + Status: int
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> GradeExamRequest : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> GradeExamRequest : <<uses>>
+ExamService ..> IExamRepository : <<uses>>
+ExamService ..> IStudentExamRepository : <<uses>>
+ExamService ..> IStudentAnswerRepository : <<uses>>
+ExamService ..> IQuestionRepository : <<uses>>
+ExamService ..> GradeExamResultVM : <<returns>>
+GradeExamRequest o-- ManualScoreVM : <<contains>>
+
+@enduml

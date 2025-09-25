@@ -1,0 +1,102 @@
+@startuml
+title View List Rooms Sequence Diagram 
+
+actor "User" as Client
+boundary ":NavigationUI" as UI <<boundary>>
+control "RoomController" as Controller <<controller>>
+participant ":RoomService" as Service <<service>>
+
+entity "RoomRepository" as RoomRepo <<repository>>
+entity "ClassRepository" as ClassRepo <<repository>>
+entity "SubjectRepository" as SubjRepo <<repository>>
+entity "UserRepository" as UserRepo <<repository>>
+
+database "Database" as DB
+
+== View List Rooms ==
+
+Client -> UI: Request view rooms
+activate UI
+UI -> Controller: GET /GetAllRooms (SearchRoomVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized message
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetAllRooms(search)
+  activate Service
+
+  '--- Authorization (quick check) ---
+  Service -> UserRepo: CanViewRooms(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check user role/permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt User is not allowed
+    Service --> Controller: "You do not have permission to view rooms."
+    deactivate Service
+    Controller --> UI: 403 Forbidden { success: false, message }
+    deactivate Controller
+    UI --> Client: Show forbidden message
+    deactivate UI
+  else User is allowed
+    '--- Count total for paging ---
+    Service -> RoomRepo: CountRooms(search)
+    activate RoomRepo
+    RoomRepo -> DB: [SQL: COUNT(*) FROM Rooms WHERE <filters>]
+    DB --> RoomRepo: total
+    RoomRepo --> Service: total
+    deactivate RoomRepo
+
+    '--- Get paged rooms (basic fields) ---
+    Service -> RoomRepo: GetRooms(search)
+    activate RoomRepo
+    RoomRepo -> DB: [SQL: SELECT RoomId, ClassId, SubjectId, Name, IsActive ... WHERE <filters> ORDER BY CreatedAt DESC LIMIT/OFFSET]
+    DB --> RoomRepo: rooms
+    RoomRepo --> Service: rooms
+    deactivate RoomRepo
+
+    alt No rooms found
+      Service --> Controller: "No rooms found."
+      deactivate Service
+      Controller --> UI: 400 BadRequest { success: false, message }
+      deactivate Controller
+      UI --> Client: Show no rooms found
+      deactivate UI
+    else Rooms found
+      '--- (Optional) load class/subject names for returned rooms ---
+      opt Need class names
+        Service -> ClassRepo: GetByIds(classIds)
+        activate ClassRepo
+        ClassRepo -> DB: [SQL: SELECT ClassId, ClassName WHERE ClassId IN (...)]
+        DB --> ClassRepo: classes
+        ClassRepo --> Service: classes
+        deactivate ClassRepo
+      end opt
+
+      opt Need subject names
+        Service -> SubjRepo: GetByIds(subjectIds)
+        activate SubjRepo
+        SubjRepo -> DB: [SQL: SELECT SubjectId, SubjectName WHERE SubjectId IN (...)]
+        DB --> SubjRepo: subjects
+        SubjRepo --> Service: subjects
+        deactivate SubjRepo
+      end opt
+
+      Service -> Service: Map to RoomVM list & compute paging
+      Service --> Controller: { success: true, data: SearchResult }
+      deactivate Service
+
+      Controller --> UI: 200 OK { success: true, message, data }
+      deactivate Controller
+      UI --> Client: Display rooms list
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

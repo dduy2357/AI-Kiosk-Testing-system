@@ -1,0 +1,73 @@
+@startuml
+
+title Add Question Bank Sequence Diagram
+
+actor "User" as Client
+boundary "c:QuestionBankController" as Controller
+control "s:QuestionBankService" as Service
+database "Database" as DB
+
+== Add Question Bank ==
+
+Client -> Controller: POST /add (AddQuestionBankRequest)
+activate Controller
+
+alt Request is null
+    Controller --> Client: 400 BadRequest { message: "Invalid request body, required field(s) are missing." }
+    deactivate Controller
+else User not authenticated
+    Controller --> Client: 401 Unauthorized { message: "User not authenticated." }
+    deactivate Controller
+else Valid request & authenticated
+    Controller -> Service: AddQuestionBankAsync(request, userId)
+    activate Service
+
+    Service -> DB: Check user is lecturer or admin (UserId, RoleId)
+    activate DB
+    alt User is not allowed
+        DB --> Service: Not found
+        deactivate DB
+        Service --> Controller: (false, "You do not have permission to perform this action.")
+        deactivate Service
+        Controller --> Client: 403 Forbidden { message }
+        deactivate Controller
+    else User is allowed
+        DB --> Service: Found
+        deactivate DB
+
+        alt Missing required fields
+            Service --> Controller: (false, "Missing required fields: Title or SubjectId")
+            deactivate Service
+            Controller --> Client: 400 BadRequest { message }
+            deactivate Controller
+        else
+            Service -> DB: Check subject exists (SubjectId)
+            activate DB
+            alt Subject not found
+                DB --> Service: Not found
+                deactivate DB
+                Service --> Controller: (false, "Subject not found. Please select a valid subject.")
+                deactivate Service
+                Controller --> Client: 400 BadRequest { message }
+                deactivate Controller
+            else Subject found
+                DB --> Service: Found
+                deactivate DB
+                Service -> DB: Add new QuestionBank
+                activate DB
+                DB --> Service: Added
+                deactivate DB
+                Service -> DB: SaveChanges
+                activate DB
+                DB --> Service: Saved
+                deactivate DB
+                Service --> Controller: (true, "Question bank has been created successfully.")
+                deactivate Service
+                Controller --> Client: 200 OK { message }
+                deactivate Controller
+            end alt
+        end alt
+    end alt
+end alt
+
+@enduml 

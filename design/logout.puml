@@ -1,0 +1,69 @@
+@startuml
+' Class Diagram for Logout Feature (Simplified)
+
+title Logout Class Diagram 
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class AuthController <<Controller>> {
+        - _iAuthenticate: IAuthenticate
+        + DoLogout(): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IAuthenticate <<Interface>> {
+        + DoLogout(): string
+    }
+    class AuthenticateService <<Service>> {
+        - _httpContextAccessor: IHttpContextAccessor
+        + DoLogout(): string
+    }
+}
+
+class HttpContext {
+    + DeleteCookie(key: string): void
+    + ClearSession(): void
+}
+
+' Relationships
+AuthController ..> IAuthenticate : <<uses>>
+IAuthenticate <|.. AuthenticateService
+AuthenticateService ..> HttpContext : <<uses>>
+
+@enduml 

@@ -1,0 +1,118 @@
+@startuml
+' Class Diagram for InputOtp (AccessExam) Feature - Sát code thực tế (bỏ Entities & Builder)
+
+title InputOtp Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _iService: IStudentExamService
+        - _httpContextAccessor: IHttpContextAccessor
+        + StudentExamController(iService: IStudentExamService, httpContextAccessor: IHttpContextAccessor)
+        + AccessExam(otp: StudentExamRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + AccessExam(otp: StudentExamRequest, userToken: string, context: HttpContext): Task<(string, object?)>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + AccessExam(otp: StudentExamRequest, userToken: string, context: HttpContext): Task<(string, object?)>
+    }
+}
+
+package "UnitOfWork" {
+    interface IUnitOfWork {
+        + Exams: IExamRepository
+        + ExamOTPs: IExamOtpRepository
+        + StudentExams: IStudentExamRepository
+        + SaveChangesAsync()
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetExamWithRoomUsers(examId: string)
+    }
+    interface IExamOtpRepository {
+        + IsOtpValid(examId: string, otpCode: int, now: DateTime)
+    }
+    interface IStudentExamRepository {
+        + GetByExamAndStudent(examId: string, studentId: string)
+        + Add(studentExam)
+        + Update(studentExam)
+    }
+}
+
+package "Models & DTOs" {
+    class StudentExamRequest <<DTO>> {
+        + ExamId: string
+        + OtpCode: int
+    }
+}
+
+package "Utilities" {
+    class Utils <<static>> {
+        + GetClientIpAddress(context: HttpContext): string
+        + GetClientBrowser(context: HttpContext): string
+    }
+    class AccessExamValidator <<static>> {
+        + Validate(exam, now: DateTime, userToken: string): string
+    }
+    class Common <<static>> {
+        + IsCompleted(status: int): bool
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+StudentExamController ..> StudentExamRequest : <<uses>>
+IStudentExamService <|.. StudentExamService
+StudentExamService ..> IUnitOfWork : <<uses>>
+StudentExamService ..> Utils : <<uses>>
+StudentExamService ..> AccessExamValidator : <<uses>>
+StudentExamService ..> Common : <<uses>>
+StudentExamService ..> StudentExamRequest : <<uses>>
+
+IUnitOfWork ..> IExamRepository : <<has>>
+IUnitOfWork ..> IExamOtpRepository : <<has>>
+IUnitOfWork ..> IStudentExamRepository : <<has>>
+
+@enduml

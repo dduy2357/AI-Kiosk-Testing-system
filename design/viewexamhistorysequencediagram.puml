@@ -1,0 +1,66 @@
+@startuml
+title View Exam History Sequence Diagram (repositories + short SQL)
+
+actor "User" as Client
+boundary ":ExamHistoryUI" as UI <<boundary>>
+control ":StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+
+database "Database" as DB
+
+== View Exam History ==
+
+Client -> UI: Click "View Exam History"
+activate UI
+UI -> Controller: GET /history-exams (SearchStudentExamVM)
+activate Controller
+Controller -> Service: GetHistoryExams(search, userId)
+activate Service
+
+' --- Auth check ---
+Service -> Service: Ensure role = Student
+alt Not authenticated
+  Service --> Controller: 401 Unauthorized
+  deactivate Service
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else Not student
+  Service --> Controller: 403 Forbidden
+  deactivate Service
+  Controller --> UI: 403 Forbidden
+  deactivate Controller
+  UI --> Client: Show forbidden
+  deactivate UI
+else OK
+  ' --- Count for paging ---
+  Service -> StuExamRepo: CountSubmittedByUser(search, userId)
+  StuExamRepo -> DB: SELECT COUNT(*) FROM StudentExams WHERE StudentId=@uid ...
+  DB --> StuExamRepo: total
+  StuExamRepo --> Service: total
+
+  ' --- Page data ---
+  Service -> StuExamRepo: GetSubmittedByUser(search, userId)
+  StuExamRepo -> DB: SELECT ... FROM StudentExams JOIN Exams ... LIMIT @PageSize OFFSET @Offset
+  DB --> StuExamRepo: rows
+  StuExamRepo --> Service: rows
+
+  alt total = 0
+    Service --> Controller: data = []
+    deactivate Service
+    Controller --> UI: Show empty history
+    deactivate Controller
+    deactivate UI
+  else Has results
+    Service -> Service: Map to StudentExamResultVM list
+    Service --> Controller: data = SearchResult
+    deactivate Service
+    Controller --> UI: Show history
+    deactivate Controller
+    deactivate UI
+  end
+end
+@enduml

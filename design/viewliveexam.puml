@@ -1,0 +1,99 @@
+@startuml
+' Simplified View Live Exam Class Diagram (theo code thực tế GetList)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title View Live Exam Class Diagram 
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _iService: IStudentExamService
+        + GetListExams(): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + GetList(studentId: string): Task<(string, object?)>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetList(studentId: string): Task<(string, object?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetAvailableExamsForStudent(studentId: string, submittedExamIds: List<int>, now: DateTime)
+    }
+    interface IStudentExamRepository {
+        + GetSubmittedExamIds(studentId: string, from: DateTime, to: DateTime)
+        + GetByExamIds(studentId: string, examIds: List<int>)
+    }
+}
+
+package "Models & DTOs" {
+    class LiveExamVM <<DTO>> {
+        + ExamId: int
+        + Title: string
+        + StartTime: DateTime
+        + Duration: int
+        + EndTime: DateTime
+        + LiveStatus: int
+        + ExamType: int
+        + Status: string
+    }
+}
+
+package "Enums" {
+    enum StudentExamStatus {
+        NotStarted
+        InProgress
+        Failed
+        Passed
+        Submitted
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> IExamRepository : <<uses>>
+StudentExamService ..> IStudentExamRepository : <<uses>>
+StudentExamService ..> LiveExamVM : <<returns>>
+LiveExamVM ..> StudentExamStatus : <<uses>>
+
+@enduml

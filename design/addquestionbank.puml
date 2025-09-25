@@ -1,0 +1,110 @@
+@startuml
+' Class Diagram for AddQuestionBank Feature
+
+title AddQuestionBank Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class QuestionBankController <<Controller>> {
+        - _questionBankService: IQuestionBankService
+        + AddQuestionBank(request: AddQuestionBankRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IQuestionBankService <<Interface>> {
+        + AddQuestionBankAsync(request: AddQuestionBankRequest, userId: string): Task<(bool, string)>
+    }
+    class QuestionBankService <<Service>> {
+        - _context: DbContext
+        + AddQuestionBankAsync(request: AddQuestionBankRequest, userId: string): Task<(bool, string)>
+    }
+}
+
+package "Models & DTOs" {
+    class AddQuestionBankRequest <<DTO>> {
+        + Title: string
+        + SubjectId: string
+        + Description: string
+    }
+}
+
+package "Entities" {
+    class QuestionBank {
+        + QuestionBankId: string
+        + Title: string
+        + SubjectId: string
+        + Description: string
+        + CreateUserId: string
+        + Status: int
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+    }
+    class Subject {
+        + SubjectId: string
+    }
+    class User {
+        + UserId: string
+        + UserRoles: List<UserRole>
+    }
+    class UserRole {
+        + RoleId: int
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Lecture
+        Admin
+    }
+}
+
+' Relationships
+QuestionBankController ..> IQuestionBankService : <<uses>>
+QuestionBankController ..> AddQuestionBankRequest : <<uses>>
+IQuestionBankService <|.. QuestionBankService
+QuestionBankService ..> QuestionBank : <<creates>>
+QuestionBankService ..> AddQuestionBankRequest : <<uses>>
+QuestionBankService ..> User : <<checks permission>>
+QuestionBankService ..> Subject : <<checks existence>>
+User "1" o-- "*" UserRole : has
+QuestionBank --> Subject : <<for>>
+QuestionBank --> User : <<created by>>
+UserRole ..> RoleEnum
+
+@enduml 

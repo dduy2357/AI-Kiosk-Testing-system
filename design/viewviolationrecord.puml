@@ -1,0 +1,104 @@
+@startuml
+' Class Diagram for View Violation Record Feature (giống View List Role)
+
+title View Violation Record Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Violation Record Class Diagram
+
+package "Controllers" {
+    class StudentViolationController <<Controller>> {
+        - _studentViolationService: IStudentViolationService
+        + GetList(search: SearchStudentViolation): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentViolationService <<Interface>> {
+        + GetAll(search: SearchStudentViolation): Task<(string, SearchResult?)>
+    }
+    class StudentViolationService <<Service>> {
+        - _unitofWork: IUnitOfWork
+        + GetAll(search: SearchStudentViolation): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentViolationRepository {
+        + GetViolations(search: SearchStudentViolation): Task<List<StudentViolationVM>>
+        + GetViolationById(violationId: string): Task<StudentViolationVM>
+        + CountViolations(search: SearchStudentViolation): Task<int>
+    }
+}
+
+package "Models & DTOs" {
+    class SearchStudentViolation <<DTO>> {
+        + StudentExamId: string
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class SearchRequestVM <<DTO>> {
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class SearchResult <<DTO>> {
+        + Result: object
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+    class StudentViolationVM <<DTO>> {
+        + ViolationId: string
+        + StudentExamId: string
+        + Message: string
+        + ScreenshotPath: string
+        + CreatedAt: DateTime
+        + ViolationName: string
+        + StudentName: string
+        + StudentCode: string
+        + StudentEmail: string
+    }
+}
+
+' Relationships
+StudentViolationController ..> IStudentViolationService : <<uses>>
+StudentViolationController ..> SearchStudentViolation : <<uses>>
+IStudentViolationService <|.. StudentViolationService : <<implements>>
+StudentViolationService ..> IStudentViolationRepository : <<uses>>
+StudentViolationService ..> SearchResult : <<returns>>
+IStudentViolationRepository ..> StudentViolationVM : <<returns>>
+SearchStudentViolation --|> SearchRequestVM
+SearchResult o-- StudentViolationVM : <<contains>>
+
+@enduml

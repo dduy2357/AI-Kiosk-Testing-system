@@ -1,0 +1,79 @@
+@startmindmap
+<style>
+mindmapDiagram {
+  node {
+    BackgroundColor lightBlue
+    BorderColor blue
+  }
+  .security {
+    BackgroundColor lightGreen
+    BorderColor green
+  }
+  .emotion {
+    BackgroundColor lightPink
+    BorderColor pink
+  }
+  .assessment {
+    BackgroundColor lightYellow
+    BorderColor orange
+  }
+}
+</style>
+
+* AKTs System Features
+** Security<<security>>
+*** User Authentication
+**** Login/Logout
+**** User Account Management
+***** View List, Create, Edit, Deactivate/Activate
+*** Access Control
+**** Role-based Access
+**** Permission Management
+**** User Authorization
+*** Audit & Monitoring
+**** View User Activity Logs
+**** Export Logs
+**** Webcam Recording/Monitoring
+**** Process Monitoring
+**** Prohibited Application Detection
+**** View Violation Record
+**** Screen Blocking Sharing
+**** Kiosk Mode
+**** Keyboard Disable
+**** Warning & Alert System
+** Emotion Analysis <<emotion>>
+*** Face Detection
+**** Detect Student Face
+*** Emotion Recognition
+**** Identify Basic Emotions
+*** Real-time Analysis
+**** Monitor During Exam
+**** Generate Emotion Reports
+** Assessment <<assessment>>
+*** Exam Administration
+**** Exam Management
+***** View List, Add/Edit/Delete, Publish
+**** Classroom Management
+***** View/Manage, Import
+**** Student Management
+**** Subject Management
+***** View List, Add/Edit/Delete
+**** Room Management
+***** View List, Add/Edit/Delete
+**** Keyboard Management
+**** Prohibited Apps Management
+**** Randomized Question Order
+*** Response Collection
+**** Take Exam
+**** Input OTP
+**** Submit Exam
+**** Auto Submit Exam
+**** Save Test
+*** Performance Analysis
+**** View Exam Answer
+**** View Result Report
+**** Export Result Report
+**** Grade Exam
+*** Question Management
+**** View List, Add/Edit/Delete, Share
+@endmindmap

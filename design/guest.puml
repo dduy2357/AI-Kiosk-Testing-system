@@ -1,0 +1,54 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 80
+skinparam ranksep 100
+
+' Cấu hình màu sắc cho actors
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor darkblue
+  FontColor darkblue
+  FontSize 12
+}
+
+
+skinparam usecase {
+  BackgroundColor yellow
+  BorderColor darkgreen
+  FontColor darkgreen
+  FontSize 10
+}
+
+
+skinparam rectangle {
+  BackgroundColor lightyellow
+  BorderColor orange
+  FontColor darkorange
+  FontSize 14
+  FontStyle bold
+}
+
+
+skinparam arrow {
+  Color darkblue
+  FontColor darkblue
+}
+
+
+together {
+  actor Guest as "Guest"
+  actor Administrator as "Administrator"
+}
+
+rectangle "AKTs System" {
+  (Register) as Register
+  (Quit Lockdown) as QuitLockdown
+  (Approve User) as ApproveUser
+}
+
+Guest -- Register
+Guest -- QuitLockdown
+Administrator -- ApproveUser
+Register .d.> ApproveUser : <<include>>
+@enduml

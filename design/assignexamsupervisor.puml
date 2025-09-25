@@ -1,0 +1,115 @@
+@startuml
+' Simplified Assign Exam Supervisor Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title Assign Exam Supervisor Class Diagram
+
+package "Controllers" {
+    class ExamSupervisorController <<Controller>> {
+        - _examSupervisorService: IExamSupervisorService
+        + CreateUpdate(input: EditExamSupervisorVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamSupervisorService <<Interface>> {
+        + AssignSupervisor(input: EditExamSupervisorVM, usertoken: string): Task<(string, object?)>
+    }
+    class ExamSupervisorService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        - _logger: ILog
+        + AssignSupervisor(input: EditExamSupervisorVM, usertoken: string): Task<(string, object?)>
+    }
+    interface ILog <<Interface>> {
+        + WriteActivity(log: AddUserLogVM): Task<string>
+    }
+}
+
+package "Repositories" {
+    interface IExamSupervisorRepository {
+        + AddOrUpdateSupervisors(examId: string, supervisorIds: List<string>)
+        + GetSupervisorsByExamId(examId: string)
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+    interface IExamRepository {
+        + GetExamById(examId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class EditExamSupervisorVM <<DTO>> {
+        + SupervisorId: List<string>
+        + ExamId: string
+    }
+    class AddUserLogVM <<DTO>> {
+        + UserId: string
+        + ActionType: string?
+        + ObjectId: string?
+        + Description: string?
+        + Status: int
+        + Metadata: string?
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Student
+        Lecture
+        Supervisor
+        Admin
+    }
+    enum LogStatus {
+        Success
+        Failed
+    }
+}
+
+' Relationships
+ExamSupervisorController ..> IExamSupervisorService : <<uses>>
+ExamSupervisorController ..> EditExamSupervisorVM : <<uses>>
+IExamSupervisorService <|.. ExamSupervisorService : <<implements>>
+ExamSupervisorService ..> IExamSupervisorRepository : <<uses>>
+ExamSupervisorService ..> IUserRepository : <<uses>>
+ExamSupervisorService ..> IExamRepository : <<uses>>
+
+AddUserLogVM ..> LogStatus : <<uses>>
+ILog ...> AddUserLogVM : <<logs>>
+ExamSupervisorService ..> ILog : <<logs>>
+
+@enduml

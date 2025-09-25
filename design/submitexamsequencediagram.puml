@@ -1,0 +1,133 @@
+@startuml
+title Submit Exam Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonSubmitExam" as UI <<boundary>>
+control "StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "studentExamRepository" as StuExamRepo <<repository>>
+entity "studentAnswerRepository" as AnswerRepo <<repository>>
+entity "examQuestionRepository" as EqRepo <<repository>>
+
+database "Database" as DB
+
+== Submit Exam ==
+
+Client -> UI: Click **Submit exam**
+activate UI
+UI -> Controller: POST /submit-exam (SubmitExamRequest)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: SubmitExam(request, userId, httpContext)
+  activate Service
+
+  '--- Role check (must be Student) ---
+  Service -> Service: Ensure role = Student
+  alt Not student
+    Service --> Controller: 403 Forbidden { message: "You do not have permission to access student exams." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Is student
+    '--- Load StudentExam in-progress ---
+    Service -> StuExamRepo: GetInProgress(request.ExamId, userId)
+    activate StuExamRepo
+    StuExamRepo -> DB: SELECT * FROM StudentExams WHERE ExamId=@id AND StudentId=@uid AND Status='InProgress'
+    DB --> StuExamRepo: studentExam|null
+    StuExamRepo --> Service: studentExam|null
+    deactivate StuExamRepo
+
+    alt Not found (or already submitted)
+      Service --> Controller: 400 BadRequest { message: "You have not started this exam or it has already been submitted." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show error
+      deactivate UI
+    else Found
+      '--- Begin transaction ---
+      Service -> UoW: BeginTransactionAsync()
+      activate UoW
+      UoW -> DB: BEGIN
+      DB --> UoW: started
+      deactivate UoW
+
+      '--- Upsert answers from payload ---
+      Service -> AnswerRepo: GetByStudentExamId(studentExam.Id)
+      activate AnswerRepo
+      AnswerRepo -> DB: SELECT * FROM StudentAnswers WHERE StudentExamId=@id
+      DB --> AnswerRepo: existingAnswers
+      AnswerRepo --> Service: existingAnswers
+      deactivate AnswerRepo
+
+      loop For each item in request.Answers
+        alt Answer exists
+          Service -> AnswerRepo: Update(answerId, chosen, updatedAt)
+          AnswerRepo -> DB: UPDATE StudentAnswers SET ...
+          DB --> AnswerRepo: ok
+        else New answer
+          Service -> AnswerRepo: Add(studentExam.Id, questionId, chosen)
+          AnswerRepo -> DB: INSERT INTO StudentAnswers(...)
+          DB --> AnswerRepo: ok
+        end alt
+      end loop
+
+      '--- Auto-grade (non-essay only) ---
+      alt Exam is NOT Essay
+        Service -> EqRepo: GetByQuestionIds(distinct questionIds)
+        activate EqRepo
+        EqRepo -> DB: SELECT QuestionId, CorrectAnswer, Point, Type FROM Questions WHERE QuestionId IN (...)
+        DB --> EqRepo: questions
+        EqRepo --> Service: questions
+        deactivate EqRepo
+
+        loop For each saved answer
+          Service -> Service: Compare with correct answer → isCorrect, points
+          Service -> AnswerRepo: UpdateGrading(answerId, isCorrect, points)
+          AnswerRepo -> DB: UPDATE StudentAnswers SET IsCorrect=@b, PointsEarned=@p WHERE Id=@id
+          DB --> AnswerRepo: ok
+        end loop
+      end alt
+
+      '--- Close StudentExam ---
+      Service -> Service: Compute totalScore, submitTime, clientInfo
+      Service -> StuExamRepo: Submit(studentExam.Id, totalScore, submitTime)
+      activate StuExamRepo
+      StuExamRepo -> DB: UPDATE StudentExams SET Status='Submitted', Score=@score, SubmitTime=@t WHERE Id=@id
+      DB --> StuExamRepo: ok
+      StuExamRepo --> Service: ok
+      deactivate StuExamRepo
+
+      '--- Persist & commit ---
+      Service -> UoW: SaveChangesAsync()
+      activate UoW
+      UoW -> DB: SAVE
+      DB --> UoW: saved
+      deactivate UoW
+
+      Service -> UoW: CommitTransactionAsync()
+      activate UoW
+      UoW -> DB: COMMIT
+      DB --> UoW: committed
+      deactivate UoW
+
+      Service --> Controller: 200 OK { message: "Submitted successfully." }
+      deactivate Service
+      Controller --> UI: 200 OK { success: true }
+      deactivate Controller
+      UI --> Client: Show submission success
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml
