@@ -1,0 +1,54 @@
+@startuml
+title Class Diagram of Observer Design Pattern
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+    FontSize 14
+}
+
+' Interfaces
+interface Subject {
+    +addObserver()
+    +removeObserver()
+    +notifyObservers()
+}
+
+interface Observer {
+    +update(weather)
+}
+
+' Concrete Subject
+class WeatherStation {
+    -observers: List
+    -weather: String
+    +addObserver()
+    +removeObserver()
+    +notifyObservers()
+}
+
+' Concrete Observers
+class PhoneDisplay {
+    -weather: String
+    +update()
+    +display()
+}
+
+class TVDisplay {
+    -weather: String
+    +update()
+    +display()
+}
+
+' Relationships
+Subject <|.. WeatherStation
+Observer <|.. PhoneDisplay
+Observer <|.. TVDisplay
+
+WeatherStation --> Observer : maintains
+WeatherStation --> PhoneDisplay
+WeatherStation --> TVDisplay
+
+@enduml

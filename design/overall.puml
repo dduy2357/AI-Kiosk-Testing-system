@@ -1,0 +1,123 @@
+@startuml
+title View Question Bank Detail Sequence Diagram
+
+actor "User" as Client
+boundary "ButtonQuestionBank" as UI <<boundary>>
+control "QuestionBankController" as Controller <<controller>>
+participant ":QuestionBankService" as Service <<service>>
+
+entity "QuestionBankRepository" as QbRepo <<repository>>
+entity "QuestionRepository" as QRepo <<repository>>
+entity "SubjectRepository" as SubjRepo <<repository>>
+entity "UserRepository" as UserRepo <<repository>>
+
+database "Database" as DB
+
+== View Question Bank Detail ==
+
+Client -> UI: Request bank detail
+activate UI
+UI -> Controller: GET /question-banks/detail (QuestionRequestVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  alt Invalid request (missing ID)
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show invalid request
+    deactivate UI
+  else Valid request
+    Controller -> Service: GetListQuestionsAsync(request, userToken)
+    activate Service
+
+    '--- Permission check ---
+    Service -> UserRepo: CanViewQuestionBank(userId)
+    activate UserRepo
+    UserRepo -> DB: -- SQL: Check permission
+    DB --> UserRepo: allowed? (bool)
+    UserRepo --> Service: allowed? (bool)
+    deactivate UserRepo
+
+    alt Not allowed
+      Service --> Controller: "No permission"
+      deactivate Service
+      Controller --> UI: 403 Forbidden
+      deactivate Controller
+      UI --> Client: Show forbidden
+      deactivate UI
+    else Allowed
+      '--- Get bank info ---
+      Service -> QbRepo: GetQuestionBankById(bankId)
+      activate QbRepo
+      QbRepo -> DB: -- SQL: Get bank info
+      DB --> QbRepo: bank | null
+      QbRepo --> Service: bank
+      deactivate QbRepo
+
+      alt Bank not found
+        Service --> Controller: "Bank not found"
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show not found
+        deactivate UI
+      else Bank found
+        '--- Load subject ---
+        Service -> SubjRepo: GetById(subjectId)
+        activate SubjRepo
+        SubjRepo -> DB: -- SQL: Get subject
+        DB --> SubjRepo: subject
+        SubjRepo --> Service: subject
+        deactivate SubjRepo
+
+        '--- Count total questions ---
+        Service -> QRepo: CountQuestions(bankId, filters)
+        activate QRepo
+        QRepo -> DB: -- SQL: Count questions
+        DB --> QRepo: total
+        QRepo --> Service: total
+        deactivate QRepo
+
+        '--- Count by type ---
+        Service -> QRepo: CountByType(bankId, filters)
+        activate QRepo
+        QRepo -> DB: -- SQL: Count by type
+        DB --> QRepo: counts
+        QRepo --> Service: counts
+        deactivate QRepo
+
+        '--- Get paged questions ---
+        Service -> QRepo: GetQuestions(bankId, filters, paging)
+        activate QRepo
+        QRepo -> DB: -- SQL: Get paged questions
+        DB --> QRepo: questionList
+        QRepo --> Service: questionList
+        deactivate QRepo
+
+        alt No questions found
+          Service --> Controller: Empty list
+          deactivate Service
+          Controller --> UI: 200 OK { empty }
+          deactivate Controller
+          UI --> Client: Show bank info (empty)
+          deactivate UI
+        else Questions found
+          Service -> Service: Map to VM
+          Service --> Controller: Success with data
+          deactivate Service
+          Controller --> UI: 200 OK { data }
+          deactivate Controller
+          UI --> Client: Display detail
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+
+@enduml

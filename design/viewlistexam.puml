@@ -1,0 +1,110 @@
+@startuml
+' Simplified View List Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View List Exam Class Diagram
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _examService: IExamService
+        + GetExamList(request: ExamListRequest)
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + GetExamListAsync(request: ExamListRequest, userId: string)
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetExamListAsync(request: ExamListRequest, userId: string)
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetExams(search: ExamListRequest)
+        + GetExamById(examId: string)
+        + CountExams(search: ExamListRequest)
+    }
+    interface IRoomRepository {
+        + GetRoomById(roomId: string)
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class ExamListRequest <<DTO>> {
+        + Status
+        + IsMyQuestion
+        + PageSize
+        + CurrentPage
+        + TextSearch
+    }
+    class SearchResult <<DTO>> {
+        + Result
+        + TotalPage
+        + PageSize
+        + CurrentPage
+        + Total
+    }
+    class ExamListVM <<DTO>> {
+        + ExamId
+        + Title
+        + RoomName
+        + TotalQuestions
+        + TotalPoints
+        + Duration
+        + StartTime
+        + EndTime
+        + CreatedBy
+        + Status
+        + IsShowResult
+        + IsShowCorrectAnswer
+        + ExamType
+        + GuideLines
+        + LiveStatus
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> ExamListRequest : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> IExamRepository : <<uses>>
+ExamService ..> IRoomRepository : <<uses>>
+ExamService ..> IUserRepository : <<uses>>
+ExamService ..> SearchResult : <<returns>>
+SearchResult o-- ExamListVM : <<contains>>
+
+@enduml

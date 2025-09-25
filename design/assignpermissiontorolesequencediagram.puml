@@ -1,0 +1,116 @@
+@startuml
+title Assign Permission to Role Sequence Diagram
+
+actor "User" as Client
+boundary ":PermissionAssignUI" as UI <<boundary>>
+control "AuthorizeController" as Controller <<controller>>
+participant ":AuthorizeService" as Service <<service>>
+control "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "RoleRepository" as RoleRepo <<repository>>
+entity "RolePermissionRepository" as RolePermRepo <<repository>>
+entity "PermissionRepository" as PermissionRepo <<repository>>
+
+database "Database" as DB
+
+== Assign Permission to Role ==
+
+Client -> UI: Submit assign permissions form
+activate UI
+UI -> Controller: POST /add-permissions-to-role (AddPermissionToRoleVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: AddPermissionsToRole(vm, userToken)
+  activate Service
+
+  '--- Validate input ---
+  Service -> Service: Validate(RoleId, Permissions)
+  alt Invalid input
+    Service --> Controller: "RoleId > 0 and permissions required."
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show invalid input
+    deactivate UI
+  else Valid input
+    '--- Ensure role exists ---
+    Service -> RoleRepo: GetRoleById(vm.RoleId)
+    activate RoleRepo
+    RoleRepo -> DB: SELECT RoleId FROM Roles WHERE RoleId=@roleId;
+    DB --> RoleRepo: row | null
+    RoleRepo --> Service: exists? (bool)
+    deactivate RoleRepo
+
+    alt Role not found
+      Service --> Controller: "Role not found."
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show role not found
+      deactivate UI
+    else Role found
+      '--- Load current permissions of the role ---
+      Service -> RolePermRepo: GetRolePermissions(vm.RoleId)
+      activate RolePermRepo
+      RolePermRepo -> DB: SELECT PermissionId FROM RolePermissions WHERE RoleId=@roleId;
+      DB --> RolePermRepo: list (currentPerms)
+      RolePermRepo --> Service: currentPerms
+      deactivate RolePermRepo
+
+      Service -> Service: Diff = vm.Permissions - currentPerms (toAdd/toRemove)
+
+      alt No changes needed
+        Service --> Controller: ""
+        deactivate Service
+        Controller --> UI: 200 OK { success: true }
+        deactivate Controller
+        UI --> Client: Show success
+        deactivate UI
+      else Update permissions
+        '--- Transaction ---
+        Service -> UoW: BeginTransactionAsync()
+        activate UoW
+        UoW -> DB: BEGIN
+        DB --> UoW: ok
+        deactivate UoW
+
+        ' Add new permissions
+        Service -> RolePermRepo: AddPermissionsToRole(roleId, toAdd)
+        activate RolePermRepo
+        RolePermRepo -> DB: INSERT INTO RolePermissions(RoleId, PermissionId) VALUES (@roleId, @permId);
+        DB --> RolePermRepo: inserted
+        RolePermRepo --> Service: ok
+        deactivate RolePermRepo
+
+        ' Remove permissions
+        Service -> RolePermRepo: RemovePermissionsFromRole(roleId, toRemove)
+        activate RolePermRepo
+        RolePermRepo -> DB: DELETE FROM RolePermissions WHERE RoleId=@roleId AND PermissionId IN (@toRemove);
+        DB --> RolePermRepo: deleted
+        RolePermRepo --> Service: ok
+        deactivate RolePermRepo
+
+        ' Commit
+        Service -> UoW: CommitTransactionAsync()
+        activate UoW
+        UoW -> DB: COMMIT
+        DB --> UoW: ok
+        deactivate UoW
+
+        Service --> Controller: ""
+        deactivate Service
+        Controller --> UI: 200 OK { success: true }
+        deactivate Controller
+        UI --> Client: Show success
+        deactivate UI
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

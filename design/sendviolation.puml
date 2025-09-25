@@ -1,0 +1,123 @@
+@startuml
+' Class Diagram for Send Violation Feature (EmailHandler là static utility, có SendEmailAsync)
+
+title Send Violation Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title Send Violation Class Diagram
+
+package "Controllers" {
+    class StudentViolationController <<Controller>> {
+        - _studentViolationService: IStudentViolationService
+        + Create(send: SendStudentViolationVM)
+    }
+}
+
+package "Services" {
+    interface IStudentViolationService <<Interface>> {
+        + Create(send: SendStudentViolationVM, usertoken: string)
+    }
+    class StudentViolationService <<Service>> {
+        - _unitofWork: IUnitOfWork
+        - _s3Service: IS3Service
+        - _log: ILog
+        + Create(send: SendStudentViolationVM, usertoken: string)
+    }
+    interface IS3Service <<Interface>> {
+        + UploadFileAsync(file: IFormFile): Task<string>
+        + DeleteFileAsync(key: string): Task
+    }
+    interface ILog <<Interface>> {
+        + WriteActivity(log: AddUserLogVM): Task<string>
+    }
+}
+
+package "Repositories" {
+    interface IStudentViolationRepository {
+        + AddViolation(send: SendStudentViolationVM)
+        + GetViolationById(violationId: string)
+        + GetAllViolationsByStudentExam(studentExamId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class SendStudentViolationVM <<DTO>> {
+        + StudentExamId: string
+        + ViolateName: string
+        + Message: string
+        + ScreenshotPath: IFormFile
+        + IsSendMail: bool
+    }
+    class SearchResult <<DTO>> {
+        + Result
+        + TotalPage
+        + PageSize
+        + CurrentPage
+        + Total
+    }
+    class StudentViolationVM <<DTO>> {
+        + ViolationId: string
+        + StudentExamId: string
+        + Message: string
+        + ScreenshotPath: string
+        + CreatedAt: DateTime
+        + ViolationName: string
+    }
+    class AddUserLogVM <<DTO>> {
+        + ActionType: string
+        + UserId: string
+        + Description: string
+        + Metadata: string
+        + ObjectId: string
+        + Status: int
+    }
+}
+
+package "Utilities" {
+    class EmailHandler <<static>> {
+        + SendEmailAsync(To: string, Subject: string, Body: string): Task<string>
+    }
+}
+
+' Relationships
+StudentViolationController ..> IStudentViolationService : <<uses>>
+StudentViolationController ..> SendStudentViolationVM : <<uses>>
+IStudentViolationService <|.. StudentViolationService : <<implements>>
+StudentViolationService ..> IStudentViolationRepository : <<uses>>
+StudentViolationService ..> EmailHandler : <<uses>>
+StudentViolationService ..> IS3Service : <<uses>>
+StudentViolationService ..> ILog : <<logs>>
+StudentViolationService ..> SearchResult : <<returns>>
+StudentViolationService ..> AddUserLogVM : <<logs>>
+IStudentViolationRepository ..> StudentViolationVM : <<returns>>
+SendStudentViolationVM o-- StudentViolationVM : <<creates>>
+
+@enduml

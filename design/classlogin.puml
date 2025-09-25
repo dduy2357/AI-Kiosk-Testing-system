@@ -1,0 +1,142 @@
+@startuml
+' Automatically generated based on the provided C# code.
+' This diagram reflects the login system architecture.
+
+title Login System Architecture
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+' Increase spacing and sizing
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+' Increase diagram size
+skinparam maxMessageSize 150
+skinparam maxClassSize 200
+skinparam maxPackageSize 300
+
+package "Controllers" {
+    class AuthenController <<Controller>> {
+        - _iAuthenticate: IAuthenticateService
+        + Login(input: UserLogin): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IAuthenticateService <<Interface>> {
+        + {abstract} DoLogin(userLogin: UserLogin): Task<(string, LoginResult?)>
+        ' ... other methods
+    }
+
+    class AuthenticateService <<Service>> {
+        - _context: DbContext
+        - _mapper: IMapper
+        - _httpContextAccessor: IHttpContextAccessor
+        + DoLogin(userLogin: UserLogin): Task<(string, LoginResult?)>
+    }
+}
+package "Entities" {
+    class User <<Entity>> {
+        + UserId: int
+        + Email: string
+        + CampusId: string
+        + FullName: string
+        + LastLogin: DateTime
+        + LastLoginIp: string
+        + Status: int
+    }
+
+    class UserRole <<Entity>> {
+        + UserId: int
+        + RoleId: int
+    }
+}
+
+package "Models & DTOs" {
+    class UserLogin <<Model>> {
+        + Email: string
+        + Password: string
+        + CampusId: string
+    }
+
+    class LoginResult <<DTO>> {
+        + AccessToken: string
+        + Data: UserToken
+    }
+
+    class UserToken <<DTO>> {
+        + UserID: string
+        + Email: string
+        + FullName: string
+        + RoleId: List<int>
+    }
+}
+
+package "Entities" {
+    class User <<Entity>> {
+        + UserId: int
+        + Email: string
+        + Password: string
+        + CampusId: string
+    }
+}
+
+package "Utilities" {
+    class JwtAuthentication <<Utility>> {
+        + {static} GenerateJwtToken(user: UserToken): string
+        + {static} ParseJwtToken(token: string): UserToken
+    }
+    class Utils <<Utility>> {
+        + {static} GetClientIpAddress(context: HttpContext): string
+        + {static} GetClientIp(): string
+    }
+}
+
+
+' Relationships
+AuthenController ..> IAuthenticateService : <<uses>>
+AuthenController ..> UserLogin : <<uses>>
+
+AuthenticateService .up.|> IAuthenticateService
+AuthenticateService ..> UserLogin : <<uses>>
+AuthenticateService ..> LoginResult : <<creates>>
+AuthenticateService ..> User : <<uses>>
+AuthenticateService ..> UserToken : <<creates>>
+AuthenticateService ..> JwtAuthentication : <<uses>>
+
+LoginResult "1" o-- "1" UserToken
+Utils ..> User : <<updates LastLoginIp>>
+UserRole ..> UserToken : <<provides RoleId>>
+
+@enduml

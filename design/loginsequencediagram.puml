@@ -1,0 +1,118 @@
+@startuml
+title Login Sequence Diagram
+
+actor "User" as Client
+boundary ":LoginUI" as UI <<boundary>>
+control "AuthController" as Controller <<controller>>
+participant ":AuthenticateService" as Service <<service>>
+participant ":JwtAuthentication" as JwtUtil
+participant ":GoogleAuthService" as Google
+database "DB" as DB
+
+== Traditional Login ==
+
+Client -> UI: Enter credentials & click Login
+activate UI
+UI -> Controller: POST /api/auth/login (UserLoginDTO)
+activate Controller
+
+Controller -> Service: DoLogin(userLogin)
+activate Service
+
+Service -> DB: Find user & validate (email/password, campus, status)
+activate DB
+DB --> Service: User | null
+deactivate DB
+
+alt Login success
+  Service -> DB: Update lastLogin/status
+  activate DB
+  DB --> Service: ok
+  deactivate DB
+
+  Service -> DB: Get user roles
+  activate DB
+  DB --> Service: roleIds
+  deactivate DB
+
+  Service -> JwtUtil: GenerateJwtToken(userToken)
+  activate JwtUtil
+  JwtUtil --> Service: accessToken
+  deactivate JwtUtil
+
+  Service --> Controller: ("", LoginResult)
+  deactivate Service
+  Controller --> UI: 200 OK (LoginResult)
+  deactivate Controller
+  UI --> Client: Show success
+  deactivate UI
+
+else Login failed (invalid/inactive/etc.)
+  Service --> Controller: (errorMsg, null)
+  deactivate Service
+  Controller --> UI: 400 Bad Request (code:"LOGIN_FAILED", message:errorMsg)
+  deactivate Controller
+  UI --> Client: Show error
+  deactivate UI
+end
+
+== Google Login ==
+
+Client -> UI: Click "Login with Google"
+activate UI
+UI -> Controller: POST /google-callback (credential, campusId)
+activate Controller
+
+Controller -> Google: ValidateAsync(credential)
+activate Google
+Google --> Controller: googleUserPayload | error
+deactivate Google
+
+alt Google token valid
+  Controller -> Service: LoginByGoogle(userInfo, campusId)
+  activate Service
+
+  Service -> DB: Find user by Email/GoogleId
+  activate DB
+  DB --> Service: User | null
+  deactivate DB
+
+  alt User valid (FPT email, campus, active)
+    Service -> DB: Update profile (avatar, lastLogin, etc.)
+    activate DB
+    DB --> Service: ok
+    deactivate DB
+
+    Service -> DB: Get user roles
+    activate DB
+    DB --> Service: roleIds
+    deactivate DB
+
+    Service -> JwtUtil: GenerateJwtToken(userToken)
+    activate JwtUtil
+    JwtUtil --> Service: accessToken
+    deactivate JwtUtil
+
+    Service --> Controller: ("", LoginResult)
+    deactivate Service
+    Controller --> UI: 200 OK (LoginResult)
+    deactivate Controller
+    UI --> Client: Show success
+    deactivate UI
+
+  else User invalid / not authorized
+    Service --> Controller: (errorMsg, null)
+    deactivate Service
+    Controller --> UI: 400 Bad Request (message:errorMsg)
+    deactivate Controller
+    UI --> Client: Show Google login failed
+    deactivate UI
+  end
+
+else Invalid Google token / exception
+  Controller --> UI: 500 Internal Server Error
+  deactivate Controller
+  UI --> Client: Show "Google token invalid"
+  deactivate UI
+end
+@enduml

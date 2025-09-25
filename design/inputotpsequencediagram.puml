@@ -1,0 +1,138 @@
+@startuml
+title Input OTP for Access Exam Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonInputOTP" as UI <<boundary>>
+control "StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "examRepository" as ExamRepo <<repository>>
+entity "examOtpRepository" as OtpRepo <<repository>>
+entity "studentExamRepository" as StuExamRepo <<repository>>
+
+database "Database" as DB
+
+== Input OTP to Access Exam ==
+
+Client -> UI: Submit OTP (ExamId, OtpCode)
+activate UI
+UI -> Controller: POST /access-exam (ExamId, OtpCode)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: AccessExam(otp, userId, httpContext)
+  activate Service
+
+  '--- Role check from token (must be Student) ---
+  Service -> Service: Ensure role = Student
+  alt Not student
+    Service --> Controller: 403 Forbidden { message: "No permission to access student exams." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Is student
+    '--- Load exam with room and members ---
+    Service -> ExamRepo: GetExamWithRoomUsers(otp.ExamId)
+    activate ExamRepo
+    ExamRepo -> DB: [SQL: SELECT exam JOIN room JOIN room_users WHERE ExamId=@id]
+    DB --> ExamRepo: exam|null
+    ExamRepo --> Service: exam|null
+    deactivate ExamRepo
+
+    alt Exam not found
+      Service --> Controller: 400 BadRequest { message: "Exam not found." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show not found
+      deactivate UI
+    else Exam found
+      '--- Check user in room and time window ---
+      Service -> Service: Validate membership & time (Start<=now<End)
+      alt Not in room
+        Service --> Controller: 403 Forbidden { message: "You do not have access to this exam." }
+        deactivate Service
+        Controller --> UI: 403 Forbidden
+        deactivate Controller
+        UI --> Client: Show no access
+        deactivate UI
+      else Time invalid (not started or ended)
+        Service --> Controller: 400 BadRequest { message: "Exam is not available at this time." }
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show time error
+        deactivate UI
+      else Time ok
+        '--- Validate OTP ---
+        Service -> OtpRepo: IsOtpValid(otp.ExamId, otp.OtpCode, now)
+        activate OtpRepo
+        OtpRepo -> DB: [SQL: SELECT 1 FROM ExamOtp WHERE ExamId=@id AND OtpCode=@code AND ExpiredAt>NOW()]
+        DB --> OtpRepo: valid? (bool)
+        OtpRepo --> Service: valid? (bool)
+        deactivate OtpRepo
+
+        alt OTP invalid
+          Service --> Controller: 400 BadRequest { message: "Invalid or expired OTP." }
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show invalid OTP
+          deactivate UI
+        else OTP valid
+          '--- Upsert StudentExam (status=InProgress) ---
+          Service -> StuExamRepo: GetByExamAndStudent(otp.ExamId, userId)
+          activate StuExamRepo
+          StuExamRepo -> DB: [SQL: SELECT * FROM StudentExams WHERE ExamId=@id AND StudentId=@uid]
+          DB --> StuExamRepo: studentExam|null
+          StuExamRepo --> Service: studentExam|null
+          deactivate StuExamRepo
+
+          alt Not exists
+            Service -> UoW: BeginTransactionAsync()
+            UoW -> DB: BEGIN
+            Service -> StuExamRepo: Add(new InProgress + StartTime + ClientInfo)
+            activate StuExamRepo
+            StuExamRepo -> DB: [SQL: INSERT INTO StudentExams (...)]
+            DB --> StuExamRepo: inserted
+            StuExamRepo --> Service: ok
+            deactivate StuExamRepo
+            Service -> UoW: SaveChangesAsync()
+            UoW -> DB: SAVE
+            Service -> UoW: CommitTransactionAsync()
+            UoW -> DB: COMMIT
+          else Exists
+            Service -> UoW: BeginTransactionAsync()
+            UoW -> DB: BEGIN
+            Service -> StuExamRepo: Update(set Status=InProgress, UpdateTimes, ClientInfo)
+            activate StuExamRepo
+            StuExamRepo -> DB: [SQL: UPDATE StudentExams SET ... WHERE Id=@id]
+            DB --> StuExamRepo: updated
+            StuExamRepo --> Service: ok
+            deactivate StuExamRepo
+            Service -> UoW: SaveChangesAsync()
+            UoW -> DB: SAVE
+            Service -> UoW: CommitTransactionAsync()
+            UoW -> DB: COMMIT
+          end alt
+
+          Service --> Controller: 200 OK { data: { StudentExamId, ExamId, StartTime } }
+          deactivate Service
+          Controller --> UI: 200 OK { success: true, data }
+          deactivate Controller
+          UI --> Client: Access granted
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

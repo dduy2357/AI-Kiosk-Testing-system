@@ -1,0 +1,82 @@
+@startuml
+
+title ViewLiveExam Sequence Diagram
+
+actor "User" as Client
+boundary "Boundary" as UI
+control "c:StudentExamController" as Controller
+participant "s:StudentExamService" as Service
+database "Database" as DB
+
+== Get List Exams ==
+
+Client -> UI: Request view live exams
+activate UI
+UI -> Controller: GET /list-exams
+activate Controller
+
+alt User not authenticated
+    Controller -> Controller: Log unauthorized access attempt
+    Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+    deactivate Controller
+    UI --> Client: Show unauthorized message
+    deactivate UI
+else User authenticated
+    Controller -> Service: GetList(userToken)
+    activate Service
+
+    Service -> DB: Check user role and permissions (UserId, RoleId)
+    activate DB
+    alt User is not student
+        DB --> Service: Not found or invalid role
+        deactivate DB
+        Service -> Service: Log authorization failure
+        Service --> Controller: ("You do not have permission to view student exams.", null)
+        deactivate Service
+        Controller --> UI: 403 Forbidden { success: false, message }
+        deactivate Controller
+        UI --> Client: Show forbidden message
+        deactivate UI
+    else User is student
+        DB --> Service: User role confirmed
+        deactivate DB
+
+        Service -> DB: Query Exams (Include Room, RoomUsers)\nWhere Status=Published & RoomUser active
+        activate DB
+        DB --> Service: Return List<Exam>
+        deactivate DB
+
+        Service -> Service: Filter exams by user's room membership
+        Service -> Service: Calculate exam status (NotStarted/InProgress/Submitted)
+
+        alt No exams found for user
+            Service --> Controller: ("No exams available for you at this time.", null)
+            deactivate Service
+            Controller --> UI: 404 Not Found { success: false, message }
+            deactivate Controller
+            UI --> Client: Show no exams found
+            deactivate UI
+        else Exams found
+            Service -> Service: Apply pagination and sorting
+            Service --> Controller: return (message, data)
+            deactivate Service
+
+            alt message.Length > 0
+                Controller --> UI: 400 Bad Request { success: false, message }
+                deactivate Controller
+                UI --> Client: Show error message
+                deactivate UI
+            else
+                Controller -> Controller: Log successful access
+                Controller --> UI: 200 OK { success: true, message, data }
+                deactivate Controller
+                UI --> Client: Show exam list
+                deactivate UI
+            end
+        end
+    end
+end
+
+deactivate Controller
+
+@enduml

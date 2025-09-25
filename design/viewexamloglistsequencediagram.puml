@@ -1,0 +1,64 @@
+@startuml
+
+title View Detailed Student Activity Logs Sequence Diagram
+
+actor "User" as Client
+boundary "c:LogController" as Controller
+control "s:LogService" as Service
+database "Database" as DB
+
+== View Detailed Student Activity Logs ==
+
+Client -> Controller: GET /get-exam-log-list (ExamLogFilterVM)
+activate Controller
+
+alt User not authenticated
+    Controller -> Controller: Log unauthorized access attempt
+    Controller --> Client: 401 Unauthorized { message: "User not authenticated." }
+    deactivate Controller
+else User authenticated
+    Controller -> Service: GetListExamLog(filter)
+    activate Service
+
+    Service -> DB: Check user role and permissions (UserId, RoleId)
+    activate DB
+    alt User is not allowed
+        DB --> Service: Not found or invalid role
+        deactivate DB
+        Service -> Service: Log authorization failure
+        Service --> Controller: ("You do not have permission to view exam logs.", null)
+        deactivate Service
+        Controller --> Client: 403 Forbidden { success: false, message }
+        deactivate Controller
+    else User is allowed
+        DB --> Service: User role confirmed
+        deactivate DB
+
+        Service -> DB: Query ExamLogs (StudentExamId, include User, UserRoles)
+        activate DB
+        DB --> Service: IQueryable<ExamLog>
+        deactivate DB
+
+        Service -> Service: Apply filters (TextSearch)
+        Service -> Service: Count total, calculate totalPage
+        Service -> DB: Get paged ExamLogListVMs
+        activate DB
+        DB --> Service: List<ExamLogListVM>
+        deactivate DB
+
+        alt No logs found
+            Service --> Controller: ("No found any log", null)
+            deactivate Service
+            Controller --> Client: 400 BadRequest { success: false, message }
+            deactivate Controller
+        else Logs found
+            Service -> Service: Wrap in SearchResult (Result, TotalPage, PageSize, CurrentPage, Total)
+            Service --> Controller: ("", SearchResult)
+            deactivate Service
+            Controller --> Client: 200 OK { success: true, message, data }
+            deactivate Controller
+        end alt
+    end alt
+end alt
+
+@enduml 

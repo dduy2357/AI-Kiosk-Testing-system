@@ -1,0 +1,147 @@
+@startuml
+' Google Login System Architecture
+' Focused specifically on Google authentication flow
+
+title Google Login System Architecture
+
+hide empty members
+skinparam packageStyle rectangle
+
+package "Controllers" {
+    class AuthenController <<Controller>> {
+        + GoogleCallback(request: GoogleAuthRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IAuthenticateService <<Interface>> {
+        + {abstract} LoginByGoogle(input: GoogleUserInfo, campusId: string): Task<(string, LoginResult?)>
+    }
+
+    class AuthenticateService <<Service>> {
+        - _context: DbContext
+        - _mapper: IMapper
+        - _httpContextAccessor: IHttpContextAccessor
+        + LoginByGoogle(input: GoogleUserInfo, campusId: string): Task<(string, LoginResult?)>
+    }
+}
+
+package "Models & DTOs" {
+    class GoogleAuthRequest <<Model>> {
+        + Credential: string
+        + CampusId: string
+    }
+
+    class GoogleUserInfo <<Model>> {
+        + Id: string
+        + Email: string
+        + VerifiedEmail: bool
+        + Name: string
+        + Picture: string
+    }
+
+    class LoginResult <<DTO>> {
+        + AccessToken: string
+        + Data: UserToken
+    }
+
+    class UserToken <<DTO>> {
+        + UserID: string
+        + Email: string
+        + FullName: string
+        + RoleId: List<int>
+    }
+}
+
+package "Entities" {
+    class User <<Entity>> {
+        + UserId: int
+        + Email: string
+        + CampusId: string
+        + GoogleId: string
+        + AvatarUrl: string
+        + FullName: string
+        + LastLogin: DateTime
+        + LastLoginIp: string
+        + Status: int
+    }
+
+    class UserRole <<Entity>> {
+        + UserId: int
+        + RoleId: int
+    }
+}
+
+package "Google Authentication" {
+    class GoogleJsonWebSignature <<External>> {
+        + {static} ValidateAsync(credential: string, settings: ValidationSettings): Task<Payload>
+    }
+
+    class ConfigManager <<Configuration>> {
+        + {static} gI(): ConfigManager
+        + GoogleClientIp: string
+    }
+}
+
+package "Utilities" {
+    class JwtAuthentication <<Utility>> {
+        + {static} GenerateJwtToken(user: UserToken, context: HttpContext): string
+        + {static} ParseJwtToken(token: string): UserToken
+    }
+
+    class Utils <<Utility>> {
+        + {static} GetClientIpAddress(context: HttpContext): string
+    }
+}
+
+package "Enums" {
+    enum UserStatus {
+        Active
+        Inactive
+    }
+}
+
+' Google Authentication Flow Relationships
+AuthenController ..> IAuthenticateService : <<uses>>
+AuthenController ..> GoogleAuthRequest : <<receives>>
+
+AuthenticateService .up.|> IAuthenticateService
+AuthenticateService ..> GoogleUserInfo : <<processes>>
+AuthenticateService ..> LoginResult : <<creates>>
+AuthenticateService ..> User : <<finds/creates>>
+AuthenticateService ..> UserToken : <<creates>>
+AuthenticateService ..> JwtAuthentication : <<uses>>
+AuthenticateService ..> Utils : <<uses>>
+AuthenticateService ..> UserRole : <<uses>>
+
+' Google Token Validation Flow
+GoogleAuthRequest ..> GoogleJsonWebSignature : <<validates>>
+GoogleJsonWebSignature ..> GoogleUserInfo : <<extracts>>
+ConfigManager ..> GoogleJsonWebSignature : <<provides settings>>
+
+' Data Relationships
+LoginResult "1" o-- "1" UserToken
+User "1" o-- "*" UserRole
+
+' Google User Mapping
+GoogleUserInfo ..> User : <<maps to>>
+
+note right of GoogleAuthRequest
+  Contains JWT token from
+  Google Sign-In
+end note
+
+note right of GoogleJsonWebSignature
+  Validates Google JWT token
+  and extracts user info
+end note
+
+note right of AuthenticateService
+  Handles Google user:
+  - Find existing user by GoogleId
+  - Create new user if not exists
+  - Update login info
+  - Generate JWT token
+end note
+
+@enduml

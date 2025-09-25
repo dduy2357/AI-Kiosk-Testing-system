@@ -1,0 +1,113 @@
+@startuml
+
+title Add Exam Sequence Diagram
+
+actor "User" as Client
+boundary "c:ExamController" as Controller
+control "s:ExamService" as Service
+database "Database" as DB
+
+== Add Exam ==
+
+Client -> Controller: POST /add (AddExamRequest)
+activate Controller
+
+alt Request is null
+    Controller --> Client: 400 BadRequest { message: "Invalid request body, required field(s) are missing." }
+    deactivate Controller
+else User not authenticated
+    Controller --> Client: 401 Unauthorized { message: "User not authenticated." }
+    deactivate Controller
+else Valid request & authenticated
+    Controller -> Service: AddExamAsync(request, userId)
+    activate Service
+
+    Service -> DB: Check user is lecturer or admin (UserId, RoleId)
+    activate DB
+    alt User is not allowed
+        DB --> Service: Not found
+        deactivate DB
+        Service --> Controller: (false, "User does not have permission to add exam.")
+        deactivate Service
+        Controller --> Client: 403 Forbidden { message }
+        deactivate Controller
+    else User is allowed
+        DB --> Service: Found
+        deactivate DB
+
+        alt EndTime <= StartTime
+            Service --> Controller: (false, "EndTime must be later than StartTime.")
+            deactivate Service
+            Controller --> Client: 400 BadRequest { message }
+            deactivate Controller
+        else
+            Service -> DB: Check room exists (RoomId)
+            activate DB
+            alt Room not found
+                DB --> Service: Not found
+                deactivate DB
+                Service --> Controller: (false, "The selected room does not exist.")
+                deactivate Service
+                Controller --> Client: 400 BadRequest { message }
+                deactivate Controller
+            else Room found
+                DB --> Service: Found
+                deactivate DB
+
+                alt No questions selected
+                    Service --> Controller: (false, "No questions selected.")
+                    deactivate Service
+                    Controller --> Client: 400 BadRequest { message }
+                    deactivate Controller
+                else Duplicate QuestionIds
+                    Service --> Controller: (false, "Duplicate QuestionIds are not allowed.")
+                    deactivate Service
+                    Controller --> Client: 400 BadRequest { message }
+                    deactivate Controller
+                else
+                    Service -> DB: Get selected Questions
+                    activate DB
+                    DB --> Service: List<Question>
+                    deactivate DB
+
+                    alt Some questions not found
+                        Service --> Controller: (false, "Some selected questions were not found.")
+                        deactivate Service
+                        Controller --> Client: 400 BadRequest { message }
+                        deactivate Controller
+                    else
+                        Service -> Service: Check question types
+                        alt Multiple types
+                            Service --> Controller: (false, "All selected questions must be of the same type.")
+                            deactivate Service
+                            Controller --> Client: 400 BadRequest { message }
+                            deactivate Controller
+                        else ExamType mismatch
+                            Service --> Controller: (false, "ExamType mismatch. Selected questions are of type {actualType}, but ExamType is {expectedType}. (0: Essay, 1: MultipleChoice, 2: TrueFalse, 3: FillInTheBlank)")
+                            deactivate Service
+                            Controller --> Client: 400 BadRequest { message }
+                            deactivate Controller
+                        else Total point = 0
+                            Service --> Controller: (false, "Total point of selected questions must be greater than 0.")
+                            deactivate Service
+                            Controller --> Client: 400 BadRequest { message }
+                            deactivate Controller
+                        else Valid
+                            Service -> Service: Calculate scale, create Exam, create ExamQuestions
+                            Service -> DB: Save Exam & ExamQuestions
+                            activate DB
+                            DB --> Service: Saved
+                            deactivate DB
+                            Service --> Controller: (true, "Exam added successfully.")
+                            deactivate Service
+                            Controller --> Client: 200 OK { message }
+                            deactivate Controller
+                        end alt
+                    end alt
+                end alt
+            end alt
+        end alt
+    end alt
+end alt
+
+@enduml 

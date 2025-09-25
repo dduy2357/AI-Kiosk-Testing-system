@@ -1,0 +1,76 @@
+@startuml
+title Take Exam Sequence Diagram (fixed)
+
+actor "User" as Client
+boundary ":ExamUI" as UI <<boundary>>
+control ":ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+
+entity "e:ExamRepository" as ExamRepo <<repository>>
+entity "q:ExamQuestionRepository" as EqRepo <<repository>>
+participant "JsonHandler" as JsonUtil <<utility>>
+
+database "Database" as DB
+
+== Take Exam ==
+
+Client -> UI: Open exam session
+activate UI
+UI -> Controller: GET /exam-detail-by-id/{examId}
+activate Controller
+Controller -> Service: GetExamDetail(examId)
+activate Service
+
+' Load exam
+Service -> ExamRepo: GetById(examId)
+activate ExamRepo
+ExamRepo -> DB: SELECT exam by id
+DB --> ExamRepo: exam / null
+ExamRepo --> Service: exam / null
+deactivate ExamRepo
+
+alt Exam not found
+  Service --> Controller: 400 BadRequest { "Exam not found" }
+  deactivate Service
+  Controller --> UI: 400 BadRequest
+  deactivate Controller
+  UI --> Client: Show not found
+  deactivate UI
+else Exam found
+  alt User not authenticated
+    Service --> Controller: 401 Unauthorized
+    deactivate Service
+    Controller --> UI: 401 Unauthorized
+    deactivate Controller
+    UI --> Client: Show unauthorized
+    deactivate UI
+  else User not authorized
+    Service --> Controller: 403 Forbidden
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else OK
+    ' Fetch questions
+    Service -> EqRepo: GetQuestionsForExam(examId, total, isRandom)
+    activate EqRepo
+    EqRepo -> DB: SELECT questions for exam
+    DB --> EqRepo: examQuestions
+    EqRepo --> Service: examQuestions
+    deactivate EqRepo
+
+    ' Map to view models
+    Service -> JsonUtil: SafeDeserializeOptions(...)
+    Service -> Service: Build ExamQuestionVM list
+    Service -> Service: Build ExamDetailVM
+
+    Service --> Controller: 200 OK { ExamDetailVM }
+    deactivate Service
+    Controller --> UI: 200 OK
+    deactivate Controller
+    UI --> Client: Render exam
+    deactivate UI
+  end alt
+end alt
+@enduml

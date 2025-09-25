@@ -1,0 +1,130 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 20
+skinparam ranksep 30
+skinparam width 2000
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor darkblue
+  FontColor darkblue
+  FontSize 12
+}
+
+
+skinparam usecase {
+  BackgroundColor yellow
+  BorderColor darkgreen
+  FontColor darkgreen
+  FontSize 10
+}
+
+
+skinparam rectangle {
+  BackgroundColor lightyellow
+  BorderColor orange
+  FontColor darkorange
+  FontSize 14
+  FontStyle bold
+}
+
+
+skinparam arrow {
+  Color darkblue
+  FontColor darkblue
+}
+together {
+  actor Administrator as "Administrator"
+  actor Supervisor as "Supervisor"
+  actor Lecturer as "Lecturer"
+}
+
+rectangle "AKTs System" {
+     usecase "View User Account List" as UC1
+     usecase "Create User Account" as UC2
+     usecase "Edit User Account" as UC3
+     usecase "Deactive/Active User Account" as UC4
+     usecase "Import User Account" as UC35
+     usecase "Export User Account" as UC36
+     usecase "View Keyboard Shortcut" as UC5
+     usecase "Toggle Keyboard Access" as UC6
+     usecase "View Prohibited Apps List" as UC9
+     usecase "Add Prohibited App" as UC10
+     usecase "Update Prohibited App" as UC11
+     usecase "Delete Prohibited App" as UC12
+     usecase "View User Activity Logs" as UC17
+     usecase "View Detail User Activity Logs" as UC18
+     usecase "Export User Logs" as UC19
+     usecase "View Class List" as UC20
+     usecase "Add Class" as UC21
+     usecase "Edit Class" as UC22
+     usecase "Deactive/Active Class" as UC23
+     usecase "View Subject List" as UC24
+     usecase "Add Subject" as UC25
+     usecase "Edit Subject" as UC26
+     usecase "Deactive/Active Subject" as UC27
+     usecase "View Room List" as UC28
+     usecase "Add Room" as UC29
+     usecase "Edit Room" as UC30
+     usecase "Deactive/Active Room" as UC31
+     usecase "View Feedback List" as UC33
+     usecase "View Role List" as UC46
+     usecase "Add Role" as UC47
+     usecase "Edit Role" as UC48
+     usecase "Deactive/Active Role" as UC49
+     usecase "View Permission List" as UC50
+     usecase "Add Permission" as UC51
+     usecase "Edit Permission" as UC52
+     usecase "Deactive/Active Permission" as UC53
+     usecase "Add Keyboard Shortcut" as UC54
+     usecase "Edit Keyboard Shortcut" as UC55
+     usecase "Remove Keyboard Shortcut" as UC56
+     usecase "Deactivate/Activate Keyboard Shortcut" as UC57
+}
+Supervisor <|-d- Administrator 
+Lecturer <|-d- Administrator 
+Administrator -- UC1
+Administrator -- UC5
+Administrator -- UC9
+Administrator -- UC17
+Administrator -- UC20
+Administrator -- UC24
+Administrator -- UC28
+Administrator -- UC33
+Administrator -- UC46
+Administrator -- UC50
+
+
+
+
+UC2 .u.> UC1 : <<extend>>
+UC3 .u.> UC1 : <<extend>>
+UC4 .u.> UC1 : <<extend>>
+UC35 .u.> UC1 : <<extend>>
+UC36 .u.> UC1 : <<extend>>
+UC6 .u.> UC5 : <<extend>>
+UC10 .u.> UC9 : <<extend>>
+UC11 .u.> UC9 : <<extend>>
+UC12 .u.> UC9 : <<extend>>
+UC18 .u.> UC17 : <<extend>>
+UC19 .u.> UC17 : <<extend>>
+UC21 .u.> UC20 : <<extend>>
+UC22 .u.> UC20 : <<extend>>
+UC23 .u.> UC20 : <<extend>>
+UC25 .u.> UC24 : <<extend>>
+UC26 .u.> UC24 : <<extend>>
+UC27 .u.> UC24 : <<extend>>
+UC29 .u.> UC28 : <<extend>>
+UC30 .u.> UC28 : <<extend>>
+UC31 .u.> UC28 : <<extend>>
+UC47 .u.> UC46 : <<extend>>
+UC48 .u.> UC46 : <<extend>>
+UC49 .u.> UC46 : <<extend>>
+UC51 .u.> UC50 : <<extend>>
+UC52 .u.> UC50 : <<extend>>
+UC53 .u.> UC50 : <<extend>>
+UC54 .u.> UC5 : <<extend>>
+UC55 .u.> UC5 : <<extend>>
+UC56 .u.> UC5 : <<extend>>
+UC57 .u.> UC9 : <<extend>>
+@enduml

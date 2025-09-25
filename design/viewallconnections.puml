@@ -1,0 +1,146 @@
+@startuml
+' Class Diagram for View All Connections (Exam Monitor Detail) Feature (giống dạng View List Role)
+
+title View All Connections (Exam Monitor Detail) Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class MonitoringController <<Controller>> {
+        - _monitoringService: IMonitoringService
+        + GetExamMonitorDetail(search: MonitorExamDetailSearchVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IMonitoringService <<Interface>> {
+        + GetExamMonitorDetail(search: MonitorExamDetailSearchVM, usertoken: string): Task<(string, SearchResult?)>
+    }
+    class MonitoringService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetExamMonitorDetail(search: MonitorExamDetailSearchVM, usertoken: string): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetByExamId(examId: string)
+        + GetById(studentExamId: string)
+    }
+    interface IUserRepository {
+        + GetById(userId: string)
+    }
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+    interface IExamSupervisorRepository {
+        + GetByExamId(examId: string)
+    }
+    interface IStudentAnswerRepository {
+        + GetByStudentExamId(studentExamId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class MonitorExamDetailSearchVM <<DTO>> {
+        + ExamId: string?
+        + Status: StudentExamStatus?
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class SearchRequestVM <<DTO>> {
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class MonitorExamDetailVM <<DTO>> {
+        + StudentExamId: string
+        + ExamId: string
+        + SubjectName: string
+        + Title: string
+        + Duration: int
+        + UserId: string
+        + FullName: string
+        + UserCode: string
+        + Email: string
+        + IpAddress: string
+        + BrowserInfo: string
+        + StartTime: DateTime
+        + SubmitTime: DateTime?
+        + Status: int
+        + TotalQuestions: int
+        + AnsweredQuestions: int
+        + Score: decimal?
+    }
+    class SearchResult <<DTO>> {
+        + Result: object?
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Admin
+    }
+    enum StudentExamStatus {
+        NotStarted
+        InProgress
+        Submitted
+        Failed
+        Passed
+    }
+}
+
+' Relationships
+MonitoringController ..> IMonitoringService : <<uses>>
+MonitoringController ..> MonitorExamDetailSearchVM : <<uses>>
+IMonitoringService <|.. MonitoringService
+MonitoringService ..> IStudentExamRepository : <<uses>>
+MonitoringService ..> IUserRepository : <<uses>>
+MonitoringService ..> IExamRepository : <<uses>>
+MonitoringService ..> IExamSupervisorRepository : <<uses>>
+MonitoringService ..> IStudentAnswerRepository : <<uses>>
+MonitoringService ..> MonitorExamDetailVM : <<maps to>>
+MonitorExamDetailSearchVM --|> SearchRequestVM
+MonitorExamDetailSearchVM ..> StudentExamStatus : <<uses>>
+SearchResult o-- MonitorExamDetailVM : <<contains>>
+
+@enduml

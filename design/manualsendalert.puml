@@ -1,0 +1,99 @@
+@startuml
+' Class Diagram for Manual Send Alert (Notification) Feature (bổ sung Repository)
+
+title Manual Send Alert Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class NotificationController <<Controller>> {
+        - _notificationService: INotificationService
+        + Create(notificationVM: NotificationCreateVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface INotificationService <<Interface>> {
+        + Create(notificationVM: NotificationCreateVM, usertoken: string): Task<string>
+    }
+    class NotificationService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        - _hubContext: NotifyHub
+        + Create(notificationVM: NotificationCreateVM, usertoken: string): Task<string>
+    }
+    class NotifyHub {
+        + SendNewNotificationToGroup(groupName: string, notification: NotificationVM): Task
+    }
+}
+
+package "Repositories" {
+    interface INotificationRepository {
+        + Add(notification: NotificationVM): Task
+        + GetById(id: string): Task<NotificationVM>
+        + GetAllByUser(userId: string): Task<List<NotificationVM>>
+    }
+}
+
+package "Models & DTOs" {
+    class NotificationCreateVM <<DTO>> {
+        + Message: string
+        + SendToId: string
+        + Type: string
+    }
+    class NotificationVM <<DTO>> {
+        + Id: string
+        + Message: string
+        + SendToId: string
+        + CreatedBy: string
+        + Type: string
+        + IsRead: bool
+        + CreatedAt: DateTime
+    }
+}
+
+' Relationships
+NotificationController ..> INotificationService : <<uses>>
+NotificationController ..> NotificationCreateVM : <<uses>>
+INotificationService <|.. NotificationService
+NotificationService ..> NotifyHub : <<notifies>>
+NotificationService ..> NotificationCreateVM : <<uses>>
+NotificationService ..> NotificationVM : <<maps to>>
+NotificationService ..> INotificationRepository : <<uses>>
+INotificationRepository ..> NotificationVM : <<manages>>
+NotificationVM o-- NotificationCreateVM : <<created from>>
+
+@enduml

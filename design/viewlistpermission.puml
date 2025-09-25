@@ -1,0 +1,100 @@
+@startuml
+'Class Diagram - View List Permission
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View List Permission Class Diagram
+
+package "Controllers" {
+    class AuthorizeController <<Controller>> {
+        - _authorizeService: IAuthorizeService
+        + GetAllPermissions(search: SearchRequestVM)
+    }
+}
+
+package "Services" {
+    interface IAuthorizeService <<Interface>> {
+        + GetAllPermissions(search: SearchRequestVM)
+    }
+    class AuthorizeService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetAllPermissions(search: SearchRequestVM)
+    }
+}
+
+package "Repositories" {
+    interface IPermissionRepository {
+        + GetPermissions(search: SearchRequestVM)
+        + GetPermissionsByCategory(categoryId: int)
+        + CountPermissions(search: SearchRequestVM)
+    }
+    interface IPermissionCategoryRepository {
+        + GetAllCategories()
+        + GetCategoryById(categoryId: int)
+    }
+}
+
+package "Models & DTOs" {
+    class SearchRequestVM <<DTO>> {
+        + PageSize
+        + CurrentPage
+        + TextSearch
+    }
+    class SearchResult <<DTO>> {
+        + Result
+        + TotalPage
+        + PageSize
+        + CurrentPage
+        + Total
+    }
+    class CategoryPermissionsVM <<DTO>> {
+        + CategoryId
+        + Description
+        + Permissions
+    }
+    class PermissionVM <<DTO>> {
+        + Id
+        + Name
+        + Action
+        + Resource
+    }
+}
+
+' Relationships
+AuthorizeController ..> IAuthorizeService : <<uses>>
+AuthorizeController ..> SearchRequestVM : <<uses>>
+IAuthorizeService <|.. AuthorizeService : <<implements>>
+AuthorizeService ..> IPermissionRepository : <<uses>>
+AuthorizeService ..> IPermissionCategoryRepository : <<uses>>
+AuthorizeService ..> SearchResult : <<returns>>
+SearchResult o-- CategoryPermissionsVM : <<contains>>
+CategoryPermissionsVM o-- PermissionVM : <<has>>
+
+@enduml

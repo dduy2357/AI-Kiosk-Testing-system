@@ -1,0 +1,111 @@
+@startuml
+' Class Diagram for Create Exam Feature (No Observer, No Log DTO)
+
+left to right direction
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+}
+
+title Create Exam Class Diagram
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _examService: IExamService
+        + CreateExam(request: AddExamRequest)
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + Handle(request: AddExamRequest, userId: string)
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + Handle(request: AddExamRequest, userId: string)
+    }
+}
+
+package "UnitOfWork" {
+    interface IUnitOfWork {
+        + Exams: IExamRepository
+        + Rooms: IRoomRepository
+        + QuestionBanks: IQuestionBankRepository
+        + ExamQuestions: IExamQuestionRepository
+        + ExamSupervisors: IExamSupervisorRepository
+        + SaveChangesAsync()
+        + BeginTransactionAsync()
+        + CommitTransactionAsync()
+        + RollbackTransactionAsync()
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + AddAsync(exam: Exam)
+    }
+    interface IRoomRepository {
+        + ExistsAsync(roomId: string): Task<bool>
+    }
+    interface IQuestionBankRepository {
+        + GetWithQuestionsAsync(id: string)
+    }
+    interface IExamQuestionRepository {
+        + AddAsync(examQuestion: ExamQuestion)
+    }
+    interface IExamSupervisorRepository {
+        + AddAsync(examSupervisor: ExamSupervisor)
+    }
+}
+
+package "Models & DTOs" {
+    class AddExamRequest <<DTO>> {
+        + QuestionBankId
+        + RoomId
+        + QuestionIds
+        + Title
+        + Description
+        + Duration
+        + StartTime
+        + EndTime
+        + IsShowResult
+        + IsShowCorrectAnswer
+        + Status
+        + ExamType
+        + GuideLines
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> AddExamRequest : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> IUnitOfWork : <<uses>>
+ExamService ..> AddExamRequest : <<uses>>
+IUnitOfWork ..> IExamRepository : <<has>>
+IUnitOfWork ..> IRoomRepository : <<has>>
+IUnitOfWork ..> IQuestionBankRepository : <<has>>
+IUnitOfWork ..> IExamQuestionRepository : <<has>>
+IUnitOfWork ..> IExamSupervisorRepository : <<has>>
+
+@enduml

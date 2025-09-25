@@ -1,0 +1,97 @@
+@startuml
+title View Detailed Student Activity Logs 
+
+actor "User" as Client
+boundary ":ButtonViewDetailedLiveExam" as UI <<boundary>>
+control "LogController" as Controller <<controller>>
+participant ":LogService" as Service <<service>>
+entity "userRepository" as UserRepo <<repository>>
+entity "studentExamRepository" as StuExamRepo <<repository>>
+entity "examLogRepository" as LogRepo <<repository>>
+database "Database" as DB
+
+== View Logs ==
+
+' --- User click UI ---
+Client -> UI: Click "View Detailed Logs"
+activate UI
+UI -> Controller: call API GetListExamLog(filter)
+deactivate UI
+activate Controller
+
+' --- Controller gọi Service ---
+Controller -> Service: GetListExamLog(filter, userId)
+activate Service
+
+' --- Authorization ---
+Service -> UserRepo: CanViewExamLogs(userId)
+activate UserRepo
+UserRepo -> DB: SELECT 1 FROM UserRoles ...
+DB --> UserRepo: ok | null
+UserRepo --> Service: allowed?
+deactivate UserRepo
+
+alt Not allowed
+  Service --> Controller: 403 Forbidden
+  deactivate Service
+  Controller --> UI: Show forbidden
+  deactivate Controller
+  UI --> Client: Forbidden message
+else Allowed
+  opt studentExamId provided
+    Service -> StuExamRepo: Exists(id)
+    activate StuExamRepo
+    StuExamRepo -> DB: SELECT 1 FROM StudentExams WHERE Id=?
+    DB --> StuExamRepo: true | false
+    StuExamRepo --> Service: exists?
+    deactivate StuExamRepo
+
+    alt Not exists
+      Service --> Controller: 400 Not Found
+      deactivate Service
+      Controller --> UI: Show not found
+      deactivate Controller
+      UI --> Client: Not found message
+      return
+    end
+  end
+
+  ' --- Count & page ---
+  Service -> LogRepo: Count(filter)
+  activate LogRepo
+  LogRepo -> DB: SELECT COUNT(*) FROM ExamLogs ...
+  DB --> LogRepo: total
+  LogRepo --> Service: total
+  deactivate LogRepo
+
+  Service -> LogRepo: GetPaged(filter)
+  activate LogRepo
+  LogRepo -> DB: SELECT ... FROM ExamLogs LIMIT/OFFSET
+  DB --> LogRepo: logs
+  LogRepo --> Service: logs
+  deactivate LogRepo
+
+  alt No logs
+    Service --> Controller: 200 OK (empty)
+    deactivate Service
+    Controller --> UI: Render empty list
+    deactivate Controller
+    UI --> Client: Empty list
+  else Have logs
+    opt Need user names
+      Service -> UserRepo: GetByIds(ids)
+      activate UserRepo
+      UserRepo -> DB: SELECT ... FROM Users WHERE Id IN (...)
+      DB --> UserRepo: users
+      UserRepo --> Service: users
+      deactivate UserRepo
+    end
+    Service --> Controller: 200 OK (SearchResult)
+    deactivate Service
+    Controller --> UI: Render logs
+    deactivate Controller
+    UI --> Client: Logs displayed
+  end
+end
+
+@enduml

@@ -1,0 +1,118 @@
+@startuml
+' Simplified Send Recording (Face Capture) Class Diagram (bỏ Entities, FaceCaptureSearchVM, AWS S3 ngắn gọn)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title Simplified Send Recording (Face Capture) Class Diagram
+
+package "Controllers" {
+    class FaceCaptureController <<Controller>> {
+        - _faceCaptureService: IFaceCaptureService
+        + AddCapture(input: FaceCaptureRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IFaceCaptureService <<Interface>> {
+        + AddCapture(input: FaceCaptureRequest): Task<string>
+    }
+    class FaceCaptureService <<Service>> {
+        - _context: DbContext
+        - _s3Service: IAmazonS3Service
+        + AddCapture(input: FaceCaptureRequest): Task<string>
+    }
+    interface IAmazonS3Service <<Interface>> {
+        + UploadFileAsync(key: string, file: IFormFile?): Task<string>
+    }
+}
+
+package "Repositories" {
+    interface IFaceCaptureRepository {
+        + Add(faceCapture)
+    }
+    interface IStudentExamRepository {
+        + GetById(studentExamId: string)
+    }
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class FaceCaptureRequest <<DTO>> {
+        + StudentExamId: string
+        + ImageCapture: IFormFile
+        + Description: string?
+        + LogType: LogType
+        + Emotions: string?
+        + DominantEmotion: string?
+        + IsDetected: bool
+    }
+}
+
+package "Enums" {
+    enum LogType {
+        Info
+        Warning
+        Error
+    }
+}
+
+package "Utilities" {
+    class UrlS3 <<static>> {
+        + Camera: string
+    }
+    class ConfigManager <<static>> {
+        + AWSBucketName: string
+        + AWSAccessKey: string
+        + AWSSecretKey: string
+        + AWSRegion: string
+    }
+}
+
+' Relationships
+FaceCaptureController ..> IFaceCaptureService : <<uses>>
+FaceCaptureController ..> FaceCaptureRequest : <<uses>>
+IFaceCaptureService <|.. FaceCaptureService : <<implements>>
+FaceCaptureService ..> FaceCaptureRequest : <<uses>>
+FaceCaptureService ..> IFaceCaptureRepository : <<uses>>
+FaceCaptureService ..> IStudentExamRepository : <<uses>>
+FaceCaptureService ..> IExamRepository : <<uses>>
+FaceCaptureService ..> IAmazonS3Service : <<uses>>
+FaceCaptureService ..> UrlS3 : <<uses>>
+FaceCaptureService ..> ConfigManager : <<uses>>
+FaceCaptureRequest ..> LogType : <<uses>>
+
+@enduml

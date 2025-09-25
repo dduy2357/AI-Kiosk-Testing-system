@@ -1,0 +1,97 @@
+@startuml
+' Simplified View Exam History Class Diagram (giống dạng View List Role)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Exam History Class Diagram
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _iService: IStudentExamService
+        + GetHistoryExams(search: SearchStudentExamVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + GetHistoryExams(search: SearchStudentExamVM, usertoken: string): Task<(string, SearchResult?)>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetHistoryExams(search: SearchStudentExamVM, usertoken: string): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetHistoryExams(search: SearchStudentExamVM, userId: string)
+    }
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class SearchStudentExamVM <<DTO>> {
+        + StartDate: DateTime?
+        + EndDate: DateTime?
+        + TextSearch: string
+        + PageSize: int
+        + CurrentPage: int
+    }
+    class SearchResult <<DTO>> {
+        + Result: object?
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+    class StudentExamResultVM <<DTO>> {
+        + StudentExamId: string
+        + ExamId: string
+        + ExamTitle: string
+        + Score: decimal
+        + ExamDate: DateTime
+        + SubmitTime: DateTime?
+        + DurationSpent: int
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+StudentExamController ..> SearchStudentExamVM : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> SearchStudentExamVM : <<uses>>
+StudentExamService ..> IStudentExamRepository : <<uses>>
+StudentExamService ..> IExamRepository : <<uses>>
+StudentExamService ..> SearchResult : <<returns>>
+SearchResult o-- StudentExamResultVM : <<contains>>
+
+@enduml

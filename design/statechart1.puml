@@ -1,0 +1,29 @@
+@startuml
+title DPIA State Diagram
+
+[*] --> Draft : DPO create DPIA\nassign responsibilities to PIC
+Draft --> InProgress : DPO click Start DPIA
+InProgress --> Approve : DPO Click Approve DPIA
+InProgress --> Reject : DPO or CIO/CTO Click Reject DPIA
+
+Approve --> [*] : DPIA Approved
+Reject --> [*] : DPIA Rejected
+
+Draft : + Trigger: Create DPIA
+Draft : + Condition: Create Successful
+Draft : + Meaning: DPIA is initiated (Deletable),\nwaiting for PIC to add team members
+
+InProgress : + Precondition: Every Responsibility is marked as Ready
+InProgress : + Trigger: DPO Click Start DPIA
+InProgress : + Condition: Start DPIA Successful
+InProgress : + Meaning: DPIA is In Progress,\nevery member is working
+
+Approve : + Trigger: DPO Click Approve DPIA
+Approve : + Condition: DPO Approves DPIA
+Approve : + Meaning: DPIA success meaning\nevery assessment is on point\nthe DPIA is approved
+
+Reject : + Trigger: DPO or CIO/CTO Click Reject DPIA
+Reject : + Condition: DPO Reject DPIA
+Reject : + Meaning: DPIA failed meaning CIO/CTO or DPO rejected it
+
+@enduml

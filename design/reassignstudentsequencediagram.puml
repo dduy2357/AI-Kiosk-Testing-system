@@ -1,0 +1,111 @@
+@startuml
+title Re-Assign Exam — Sequence Diagram 
+
+actor "User" as Client
+boundary ":ExamMonitorUI" as UI <<boundary>>
+control "MonitoringController" as Controller <<controller>>
+participant ":MonitoringService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+' --- Repositories ---
+entity "ExamRepository" as ExamRepo <<repository>>
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "StudentAnswerRepository" as AnsRepo <<repository>>
+entity "FaceCaptureRepository" as FaceRepo <<repository>>
+
+
+database "DB" as DB
+
+== Re-Assign Exam ==
+
+Client -> UI: Click **Re-assign exam**
+activate UI
+UI -> Controller: POST /re-assign-exam (ReAssignExam)
+deactivate UI
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message:"User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+else User authenticated
+  Controller -> Service: ReAssignStudent(request, userId)
+  activate Service
+
+  ' 1) Begin transaction
+  Service -> UoW: Begin()
+  UoW -> DB: BEGIN
+  DB --> UoW: ok
+
+  ' 2) Verify exam đang diễn ra
+  Service -> ExamRepo: GetByIdOngoing(request.ExamId)
+  activate ExamRepo
+  ExamRepo -> DB: SELECT Id FROM Exams WHERE Id=? AND Status<>0 AND StartTime<=NOW() AND EndTime>=NOW() LIMIT 1
+  DB --> ExamRepo: exam | null
+  ExamRepo --> Service: exam | null
+  deactivate ExamRepo
+
+  alt Exam not found / not ongoing
+    Service -> UoW: Rollback()
+    UoW -> DB: ROLLBACK
+    DB --> UoW: ok
+    Service --> Controller: 400 { "Exam not found or not ongoing." }
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show error
+  else Exam OK
+    ' 3) Lấy StudentExam hiện tại
+    Service -> StuExamRepo: GetByExamAndStudent(request.ExamId, request.StudentId)
+    activate StuExamRepo
+    StuExamRepo -> DB: SELECT * FROM StudentExams WHERE ExamId=? AND StudentId=? LIMIT 1
+    DB --> StuExamRepo: studentExam | null
+    StuExamRepo --> Service: studentExam | null
+    deactivate StuExamRepo
+
+    alt StudentExam not found
+      Service -> UoW: Rollback()
+      UoW -> DB: ROLLBACK
+      DB --> UoW: ok
+      Service --> Controller: 400 { "Student hasn't joined this exam." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show not found
+    else Found
+      ' 4) Xoá dữ liệu liên quan (answers, captures, studentExam)
+      Service -> AnsRepo: DeleteByStudentExamId(studentExam.Id)
+      activate AnsRepo
+      AnsRepo -> DB: DELETE FROM StudentAnswers WHERE StudentExamId=?
+      DB --> AnsRepo: ok
+      AnsRepo --> Service: ok
+      deactivate AnsRepo
+
+      Service -> FaceRepo: DeleteByStudentExamId(studentExam.Id)
+      activate FaceRepo
+      FaceRepo -> DB: DELETE FROM FaceCaptures WHERE StudentExamId=?
+      DB --> FaceRepo: ok
+      FaceRepo --> Service: ok
+      deactivate FaceRepo
+
+      Service -> StuExamRepo: Delete(studentExam.Id)
+      activate StuExamRepo
+      StuExamRepo -> DB: DELETE FROM StudentExams WHERE Id=?
+      DB --> StuExamRepo: ok
+      StuExamRepo --> Service: ok
+      deactivate StuExamRepo
+
+      ' 5) Commit
+      Service -> UoW: Commit()
+      UoW -> DB: COMMIT
+      DB --> UoW: ok
+
+      ' 6) Done
+      Service --> Controller: 200 { success:true }
+      deactivate Service
+      Controller --> UI: 200 OK
+      deactivate Controller
+      UI --> Client: Show success
+    end alt
+  end alt
+end alt
+@enduml

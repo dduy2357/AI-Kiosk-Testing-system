@@ -1,0 +1,102 @@
+@startuml
+' Simplified Assign OTP Class Diagram (Model + Repository)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title Assign OTP Class Diagram 
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _examService: IExamService
+        + AssignOTP(input: CreateExamOtpVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + AssignOTP(input: CreateExamOtpVM, userId: string): Task<(string, ExamOtpVM?)>
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + AssignOTP(input: CreateExamOtpVM, userId: string): Task<(string, ExamOtpVM?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetWithRoomById(examId: string)
+        + SaveChangesAsync()
+    }
+    interface IExamOtpRepository {
+        + GetByExamId(examId: string)
+        + AddAsync(examOtp: ExamOtp)
+        + Update(examOtp: ExamOtp)
+    }
+}
+
+package "Models & DTOs" {
+    class CreateExamOtpVM <<DTO>> {
+        + ExamId: string
+        + TimeValid: int
+    }
+    class ExamOtpVM <<DTO>> {
+        + ExamOtpId: string
+        + ExamId: string
+        + OtpCode: string
+        + TimeValid: int
+        + ExpiredAt: DateTime
+    }
+}
+
+package "Enums" {
+    enum ExamStatus {
+        Draft
+        Published
+        Archived
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> CreateExamOtpVM : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> IExamRepository : <<uses>>
+ExamService ..> IExamOtpRepository : <<uses>>
+ExamService ..> CreateExamOtpVM : <<uses>>
+ExamService ..> ExamOtpVM : <<returns>>
+ExamService ..> ExamStatus : <<uses>>
+
+@enduml

@@ -1,0 +1,70 @@
+@startuml
+
+title View List Question Sequence Diagram
+
+actor "User" as Client
+boundary "c:QuestionController" as Controller
+control "s:QuestionService" as Service
+database "Database" as DB
+
+== Get List Question ==
+
+Client -> Controller: GET /get-list (QuestionRequestVM)
+activate Controller
+
+alt User not authenticated
+    Controller -> Controller: Log unauthorized access attempt
+    Controller --> Client: 401 Unauthorized { message: "User not authenticated" }
+    deactivate Controller
+else User authenticated
+    alt Request is null
+        Controller --> Client: 400 BadRequest { message: "Invalid request body" }
+        deactivate Controller
+    else Valid request
+        Controller -> Service: GetListQuestionAsync(request, usertoken)
+        activate Service
+
+        Service -> DB: Check user is lecturer (UserId, RoleId=Lecture)
+        activate DB
+        alt User is not lecturer
+            DB --> Service: Not found
+            deactivate DB
+            Service -> Service: Log authorization failure
+            Service --> Controller: (false, "You do not have permission to view questions.", null)
+            deactivate Service
+            Controller --> Client: 403 Forbidden { success: false, message }
+            deactivate Controller
+        else User is lecturer
+            DB --> Service: Found
+            deactivate DB
+
+            Service -> DB: Query Questions (include Subject, QuestionBank)
+            activate DB
+            DB --> Service: IQueryable<Question>
+            deactivate DB
+
+            Service -> Service: Apply filters (TextSearch, Status, IsMyQuestion, DifficultyLevel)
+            Service -> Service: Count total, calculate totalPage
+            Service -> DB: Get paged QuestionListVMs
+            activate DB
+            DB --> Service: List<QuestionListVM>
+            deactivate DB
+
+            alt No questions found
+                Service --> Controller: (false, "No found any question", null)
+                deactivate Service
+                Controller --> Client: 400 BadRequest { success: false, message }
+                deactivate Controller
+            else Questions found
+                Service -> Service: Wrap in QuestionListResponse
+                Service --> Controller: (true, "Successfully retrieved question list.", QuestionListResponse)
+                deactivate Service
+                Controller -> Controller: Log successful access
+                Controller --> Client: 200 OK { success: true, message, data }
+                deactivate Controller
+            end alt
+        end alt
+    end alt
+end alt
+
+@enduml 

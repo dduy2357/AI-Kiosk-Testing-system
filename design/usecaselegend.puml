@@ -1,0 +1,26 @@
+@startuml
+skinparam monochrome true
+
+rectangle "System" as System
+usecase "Use case name" as Usecase
+
+' Boundary of system
+System .. Usecase : Boundary of system
+
+' Communication Link
+Usecase .. System : Communication Link
+
+' Extend relation
+Usecase -[dashed]-> Usecase : Extend relation
+
+' Include relation
+Usecase -[dashed,left]-> Usecase : Include relation
+
+' Generalization
+Usecase -[down]-> Usecase : Generalization
+
+note top of Usecase
+  Note
+end note
+
+@enduml

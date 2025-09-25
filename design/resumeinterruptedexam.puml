@@ -1,0 +1,76 @@
+@startuml
+' Simplified Resume Interrupted Exam Class Diagram (giống dạng View List Role)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title Resume Interrupted Exam Class Diagram
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _iService: IStudentExamService
+        + GetSavedAnswers(examId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + GetSavedAnswers(examId: string, usertoken: string): Task<(string, List<StudentAnswerVM>?)>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetSavedAnswers(examId: string, usertoken: string): Task<(string, List<StudentAnswerVM>?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetByExamAndUser(examId: string, userId: string)
+    }
+    interface IStudentAnswerRepository {
+        + GetByStudentExamId(studentExamId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class StudentAnswerVM <<DTO>> {
+        + QuestionId: string
+        + UserAnswer: string
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+StudentExamController ..> StudentAnswerVM : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> IStudentExamRepository : <<uses>>
+StudentExamService ..> IStudentAnswerRepository : <<uses>>
+StudentExamService ..> StudentAnswerVM : <<returns>>
+
+@enduml

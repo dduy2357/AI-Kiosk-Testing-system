@@ -1,0 +1,85 @@
+@startuml
+title Resume Interrupted Exam Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonResumeExam" as UI <<boundary>>
+control "StudentExamController" as Controller <<controller>>
+participant ":StudentExamService" as Service <<service>>
+
+entity "studentExamRepository" as StuExamRepo <<repository>>
+entity "studentAnswerRepository" as AnswerRepo <<repository>>
+
+database "Database" as DB
+
+== Resume Interrupted Exam ==
+
+Client -> UI: Click **Resume exam**
+activate UI
+UI -> Controller: GET /get-saved-answers/{examId}
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetSavedAnswers(examId, userId)
+  activate Service
+
+  '--- Authorization (must be Student) ---
+  Service -> Service: Ensure role = Student
+  alt Not student
+    Service --> Controller: 403 Forbidden { message: "You do not have permission to access student exams." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Is student
+    '--- Load in-progress StudentExam for this user ---
+    Service -> StuExamRepo: GetByExamAndUser(examId, userId)
+    activate StuExamRepo
+    StuExamRepo -> DB: [SQL: SELECT * FROM StudentExams WHERE ExamId=@id AND StudentId=@uid AND Status='InProgress']
+    DB --> StuExamRepo: studentExam|null
+    StuExamRepo --> Service: studentExam|null
+    deactivate StuExamRepo
+
+    alt Not found
+      Service --> Controller: 400 BadRequest { message: "You have not started this exam or it has already been submitted." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show not found
+      deactivate UI
+    else Found
+      '--- Check exam still active (not past EndTime) ---
+      Service -> Service: Validate now < studentExam.Exam.EndTime
+      alt Exam has ended
+        Service --> Controller: 400 BadRequest { message: "Exam has ended, you cannot retrieve answers." }
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show exam ended
+        deactivate UI
+      else Still in progress
+        '--- Get saved answers for this StudentExam ---
+        Service -> AnswerRepo: GetByStudentExamId(studentExam.Id)
+        activate AnswerRepo
+        AnswerRepo -> DB: [SQL: SELECT QuestionId, UserAnswer FROM StudentAnswers WHERE StudentExamId=@seId]
+        DB --> AnswerRepo: answers
+        AnswerRepo --> Service: answers
+        deactivate AnswerRepo
+
+        Service -> Service: Map to List<StudentAnswerVM>
+        Service --> Controller: 200 OK { data: answersVM }
+        deactivate Service
+        Controller --> UI: 200 OK { success: true, data }
+        deactivate Controller
+        UI --> Client: Render saved answers
+        deactivate UI
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

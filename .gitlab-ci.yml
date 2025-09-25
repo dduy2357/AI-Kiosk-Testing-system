@@ -1,0 +1,211 @@
+image: node:20
+
+stages:
+  - SAST
+  - SCA
+  - build_push
+  - deploy_frontend
+  - DAST
+
+variables:
+  SAST_ANALYZER_IMAGE: "registry.gitlab.com/gitlab-org/security-products/analyzers/semgrep:latest"
+
+# =============================
+# Build Frontend
+# =============================
+build_frontend:
+  stage: build_push
+  only:
+    - dev
+    - main
+  script:
+    - cd frontend
+    - echo "VITE_BASE_URL=$VITE_BASE_URL" > .env
+    - npm install
+    - npm run build
+    - cp dist/index.html dist/404.html
+    - mv dist ../public
+  artifacts:
+    paths:
+      - public
+
+# =============================
+# Deploy Backend
+# =============================
+# =============================
+# Deploy Backend
+# =============================
+deploy_backend:
+  stage: build_push
+  tags:
+    - linux
+  only:
+    - dev
+    - main
+  script:
+    - echo "🔄 Pull code mới từ nhánh main..."
+    - git pull origin main || true
+
+    # Tạo file ENV cho backend (.NET)
+    - mkdir -p API
+    - |
+      cat > API/env.env <<'EOF'
+      ConnectionStrings__MyDB=$ConnectionStrings__MyDB
+      AWS__SecretKey=$AWS__SecretKey
+      AIKey__GeminiKey=$AIKey__GeminiKey
+      EOF
+    - sed 's/=.*/=***/' API/env.env
+
+    # Build & (re)start container dựa vào docker-compose.yml có sẵn
+    - docker compose up --build -d
+
+# =============================
+# Deploy Frontend (GitLab Pages)
+# =============================
+pages:
+  stage: deploy_frontend
+  script:
+    - echo "🚀 Deploy GitLab Pages từ thư mục public/"
+  artifacts:
+    paths:
+      - public
+  only:
+    - dev
+    - main
+
+# =============================
+# SAST
+# =============================
+
+# --- Semgrep ---
+custom_semgrep:
+  image: python:3.10
+  stage: SAST
+  before_script:
+    - pip install semgrep json2html
+  script:
+    - semgrep --config=auto --json > semgrep-report.json || true
+    - python -c "import json;from json2html import *;d=json.load(open('semgrep-report.json'));open('semgrep-report.html','w').write(json2html.convert(json=d))"
+  only:
+    - dev
+    - main
+  artifacts:
+    when: always
+    reports:
+      sast: semgrep-report.json
+    paths:
+      - semgrep-report.json
+      - semgrep-report.html
+
+# --- Snyk (SCA) ---
+snyk_sast:
+  image: node:20
+  stage: SCA
+  variables:
+    SNYK_TOKEN: $SNYK_TOKEN
+  before_script:
+    - npm install -g snyk snyk-to-html
+  script:
+    - snyk auth $SNYK_TOKEN
+    - snyk test --all-projects --json > snyk-report.json || true
+    - snyk-to-html -i snyk-report.json -o snyk-report.html || true
+  only:
+    - dev
+    - main
+  artifacts:
+    when: always
+    reports:
+      sast: snyk-report.json
+    paths:
+      - snyk-report.json
+      - snyk-report.html
+
+# =============================
+# DAST
+# =============================
+
+# --- ZAP ---
+zap_scan:
+  stage: DAST
+  retry: 1
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_TLS_CERTDIR: ""
+    TARGET_URL: "https://g77-sep490-su25-ab4781.gitlab.io"
+    ZAP_IMAGE: "ghcr.io/zaproxy/zaproxy:stable"
+  script: |
+    set +e
+    echo "=== ZAP DAST Debug ===" > zap-debug.log
+    date -Iseconds >> zap-debug.log
+    echo "[pull] $ZAP_IMAGE" | tee -a zap-debug.log
+    docker pull "$ZAP_IMAGE" >> zap-debug.log 2>&1
+
+    echo "[run] mount $CI_PROJECT_DIR -> /zap/wrk" | tee -a zap-debug.log
+    docker run --name zapscan -u 0:0 -v "$CI_PROJECT_DIR:/zap/wrk" "$ZAP_IMAGE" \
+      zap-baseline.py -t "$TARGET_URL" -m 5 -d \
+        -r zap-report.html -J zap-report.json \
+        -z "-config connection.userAgent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' -config network.http2=false" \
+      >> zap-debug.log 2>&1
+
+    echo "[ZAP exit] $?" >> zap-debug.log
+    docker logs zapscan >> zap-debug.log 2>&1 || true
+    docker rm -f zapscan >> zap-debug.log 2>&1 || true
+
+    ls -al "$CI_PROJECT_DIR" | tee -a zap-debug.log
+    # Stub nếu (hiếm) vẫn không có report
+    [ -f "$CI_PROJECT_DIR/zap-report.html" ] || echo "<html><body><h1>No ZAP report</h1><p>See zap-debug.log</p></body></html>" > "$CI_PROJECT_DIR/zap-report.html"
+    [ -f "$CI_PROJECT_DIR/zap-report.json" ] || echo '{"error":"no ZAP report; see zap-debug.log"}' > "$CI_PROJECT_DIR/zap-report.json"
+  artifacts:
+    when: always
+    paths:
+      - zap-report.html
+      - zap-report.json
+      - zap-debug.log
+    expire_in: 7 days
+  only:
+    - dev
+    - main
+  allow_failure: true
+# --- Trivy ---
+trivy_scan:
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  stage: SCA
+  script:
+    - echo "🔍 Quét bảo mật bằng Trivy..."
+    - trivy --version
+    - trivy fs . --format json --output trivy-report.json || true
+    - trivy fs . --format template --template "@/contrib/html.tpl" -o trivy-report.html || true
+  only:
+    - dev
+    - main
+  artifacts:
+    when: always
+    paths:
+      - trivy-report.json
+      - trivy-report.html
+
+# =============================
+# SonarQube (Code Quality)
+# =============================
+sonarqube-check:
+  image: sonarsource/sonar-scanner-cli:latest
+  stage: SAST
+  only:
+    - dev
+    - main
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  script:
+    - sonar-scanner
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+
+

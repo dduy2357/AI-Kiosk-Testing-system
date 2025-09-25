@@ -1,0 +1,123 @@
+@startuml
+' Class Diagram for ReAssign Exam Feature (tách riêng Subject/Observer, bỏ Entities, bỏ ExamHub)
+
+title ReAssign Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class MonitoringController <<Controller>> {
+        - _monitoringService: IMonitoringService
+        + ReAssignStudent(assignStudent: ReAssignStudent): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IMonitoringService <<Interface>> {
+        + ReAssignStudent(assignStudent: ReAssignStudent, usertoken: string): Task<string>
+    }
+    class MonitoringService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        - _log: ILog
+        - _s3Service: IAmazonS3Service
+        - _reAssignSubject: IReAssignSubject
+        + ReAssignStudent(assignStudent: ReAssignStudent, usertoken: string): Task<string>
+    }
+}
+
+package "Subject" {
+    interface IReAssignSubject <<Interface>> {
+        + Attach(observer: IReAssignObserver)
+        + Detach(observer: IReAssignObserver)
+        + Notify(reAssign: ReAssignStudent, exam, userId: string, studentExamId: string): Task
+    }
+}
+
+package "Observer" {
+    interface IReAssignObserver <<Interface>> {
+        + OnStudentReAssigned(reAssign: ReAssignStudent, exam, userId: string, studentExamId: string): Task
+    }
+}
+
+package "Services" {
+    interface ILog <<Interface>> {
+        + WriteActivity(log: AddUserLogVM): Task<string>
+    }
+    interface IAmazonS3Service <<Interface>> {
+        + DeleteFileAsync(key: string): Task
+    }
+}
+
+package "Models & DTOs" {
+    class ReAssignStudent <<DTO>> {
+        + ExamId: string
+        + StudentId: string
+    }
+    class AddUserLogVM <<DTO>> {
+        + ActionType: string
+        + UserId: string
+        + Description: string
+        + Metadata: string
+        + ObjectId: string
+        + Status: int
+    }
+}
+
+package "Enums" {
+    enum LogStatus {
+        Success
+        Failed
+    }
+    enum StudentExamStatus {
+        InProgress
+        Submitted
+    }
+}
+
+' Relationships
+MonitoringController ..> IMonitoringService : uses
+MonitoringController ..> ReAssignStudent : uses
+IMonitoringService <|.. MonitoringService
+MonitoringService ..> ILog : logs
+MonitoringService ..> AddUserLogVM : logs
+MonitoringService ..> IAmazonS3Service : deletes file
+MonitoringService ..> IReAssignSubject : notifies
+IReAssignSubject o-- IReAssignObserver : observers
+ReAssignStudent ..> AddUserLogVM : for
+AddUserLogVM ..> LogStatus : uses
+
+@enduml

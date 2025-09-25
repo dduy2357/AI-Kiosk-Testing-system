@@ -1,0 +1,151 @@
+@startuml
+' Class Diagram for Add Exam Feature
+
+title Add Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+' Increase spacing and sizing
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _examService: IExamService
+        + AddExam(request: AddExamRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + AddExamAsync(request: AddExamRequest, userId: string): Task<(bool, string)>
+    }
+    class ExamService <<Service>> {
+        - _context: DbContext
+        + AddExamAsync(request: AddExamRequest, userId: string): Task<(bool, string)>
+    }
+}
+
+package "Models" {
+    class AddExamRequest <<DTO>> {
+        + RoomId: string
+        + QuestionIds: List<string>
+        + Title: string
+        + Description: string
+        + Duration: int
+        + StartTime: DateTime
+        + EndTime: DateTime
+        + IsShowResult: bool
+        + IsShowCorrectAnswer: bool
+        + Status: int
+        + ExamType: int
+        + GuideLines: string?
+    }
+}
+
+package "Entities" {
+    class Exam {
+        + ExamId: string
+        + RoomId: string
+        + Title: string
+        + Description: string
+        + Duration: int
+        + TotalPoints: decimal
+        + StartTime: DateTime
+        + EndTime: DateTime
+        + TotalQuestions: int
+        + IsShowResult: bool
+        + IsShowCorrectAnswer: bool
+        + Status: int
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+        + CreateUser: string
+        + GuildeLines: string?
+    }
+    class ExamQuestion {
+        + ExamQuestionId: string
+        + ExamId: string
+        + QuestionId: string
+        + Points: decimal
+        + CreatedAt: DateTime
+    }
+    class Question {
+        + QuestionId: string
+        + Type: int
+        + Point: decimal
+    }
+    class Room {
+        + RoomId: string
+    }
+    class User {
+        + UserId: string
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Lecture
+        Admin
+    }
+    enum ExamStatus {
+        Draft
+        Published
+        Archived
+    }
+    enum QuestionTypeChoose {
+        Essay
+        MultipleChoice
+        TrueFalse
+        FillInTheBlank
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+IExamService <|.. ExamService
+ExamController ..> AddExamRequest : <<uses>>
+ExamService ..> Exam : <<creates>>
+ExamService ..> ExamQuestion : <<creates>>
+ExamService ..> Question : <<uses>>
+ExamService ..> Room : <<uses>>
+ExamService ..> User : <<uses>>
+AddExamRequest o-- Exam : <<creates>>
+AddExamRequest o-- ExamQuestion : <<creates>>
+Exam o-- ExamQuestion : <<has>>
+Exam ..> ExamStatus : <<uses>>
+ExamQuestion ..> Question : <<uses>>
+Question ..> QuestionTypeChoose : <<uses>>
+User ..> RoleEnum : <<uses>>
+
+@enduml 

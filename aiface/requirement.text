@@ -1,0 +1,7 @@
+flask==2.3.3
+deepface==0.0.93
+opencv-python==4.8.0.76
+numpy==1.24.3
+tensorflow==2.19.0
+flasgger==0.9.7.1
+

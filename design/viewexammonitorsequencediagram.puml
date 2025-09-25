@@ -1,0 +1,104 @@
+@startuml
+title View Exam Monitor — Sequence Diagram (repos wired, short SQL)
+
+actor "User" as Client
+boundary ":MonitorUI" as UI <<boundary>>
+control ":MonitoringController" as Controller <<controller>>
+participant ":MonitoringService" as Service <<service>>
+
+' Repositories
+entity "ExamRepository" as ExamRepo <<repository>>
+entity "RoomRepository" as RoomRepo <<repository>>
+entity "ClassRepository" as ClassRepo <<repository>>
+entity "SubjectRepository" as SubjectRepo <<repository>>
+
+database "Database" as DB
+
+== View Exam Monitor ==
+
+Client -> UI: Request exam monitor overview (MonitorExamSearchVM)
+activate UI
+UI -> Controller: GET /exam-overview
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetExamOverview(search, usertoken)
+  activate Service
+
+  ' --- Check admin ---
+  Service -> DB: SELECT 1 FROM Users WHERE Id=@uid AND Role='Admin'
+  DB --> Service: isAdmin
+
+  ' --- Get permitted exam ids ---
+  Service -> ExamRepo: GetPermittedExamIds(userId)
+  activate ExamRepo
+  ExamRepo -> DB: SELECT ExamId FROM ExamSupervisors WHERE UserId=@uid
+  DB --> ExamRepo: examIds
+  ExamRepo --> Service: examIds
+  deactivate ExamRepo
+
+  alt examIds is empty
+    Service --> Controller: 403 Forbidden
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Has permitted exams
+    ' --- Search Exams ---
+    Service -> ExamRepo: SearchExams(search, examIds)
+    activate ExamRepo
+    ExamRepo -> DB: SELECT * FROM Exams WHERE Id IN (@ids) ...
+    DB --> ExamRepo: exams
+    ExamRepo --> Service: exams
+    deactivate ExamRepo
+
+    ' --- Load Rooms ---
+    Service -> RoomRepo: GetByIds(exams.RoomIds)
+    activate RoomRepo
+    RoomRepo -> DB: SELECT * FROM Rooms WHERE Id IN (@ids)
+    DB --> RoomRepo: rooms
+    RoomRepo --> Service: rooms
+    deactivate RoomRepo
+
+    ' --- Load Classes ---
+    Service -> ClassRepo: GetByIds(exams.ClassIds)
+    activate ClassRepo
+    ClassRepo -> DB: SELECT * FROM Classes WHERE Id IN (@ids)
+    DB --> ClassRepo: classes
+    ClassRepo --> Service: classes
+    deactivate ClassRepo
+
+    ' --- Load Subjects ---
+    Service -> SubjectRepo: GetByIds(exams.SubjectIds)
+    activate SubjectRepo
+    SubjectRepo -> DB: SELECT * FROM Subjects WHERE Id IN (@ids)
+    DB --> SubjectRepo: subjects
+    SubjectRepo --> Service: subjects
+    deactivate SubjectRepo
+
+    ' --- Count total ---
+    Service -> ExamRepo: CountExams(search, examIds)
+    activate ExamRepo
+    ExamRepo -> DB: SELECT COUNT(*) FROM Exams WHERE Id IN (@ids) ...
+    DB --> ExamRepo: total
+    ExamRepo --> Service: total
+    deactivate ExamRepo
+
+    ' --- Build result ---
+    Service -> Service: Merge data -> MonitorExamsVM
+    Service --> Controller: 200 OK { success:true, data: SearchResult(...) }
+    deactivate Service
+    Controller --> UI: 200 OK
+    deactivate Controller
+    UI --> Client: Show overview
+    deactivate UI
+  end
+end
+
+@enduml

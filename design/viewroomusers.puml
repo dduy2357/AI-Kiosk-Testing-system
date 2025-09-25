@@ -1,0 +1,150 @@
+@startuml
+' Class Diagram for View Users In Room Feature
+
+title View Users In Room Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+package "Controllers" {
+    class RoomUserController <<Controller>> {
+        - _roomUserService: IRoomUserService
+        + GetRoomUsers(search: SearchRoomUserVM): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IRoomUserService <<Interface>> {
+        + GetUsersInRoom(search: SearchRoomUserVM): Task<(string, SearchResult?)>
+    }
+    class RoomUserService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetUsersInRoom(search: SearchRoomUserVM): Task<(string, SearchResult?)>
+    }
+}
+
+package "Repositories" {
+    interface IRoomUserRepository {
+        + GetRoomUsers(search: SearchRoomUserVM)
+        + CountRoomUsers(search: SearchRoomUserVM)
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+    interface IRoomRepository {
+        + GetRoomById(roomId: string)
+    }
+}
+
+package "Models" {
+    class SearchRoomUserVM <<DTO>> {
+        + RoomId: string?
+        + Role: List<RoleEnum>?
+        + Status: UserStatus?
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class SearchRequestVM <<DTO>> {
+        + PageSize: int
+        + CurrentPage: int
+        + TextSearch: string
+    }
+    class RoomWithUserVM <<DTO>> {
+        + RoomId: string
+        + RoomCode: string
+        + Description: string
+        + IsRoomActive: bool
+        + Users: List<UserInRoomVM>
+    }
+    class UserInRoomVM <<DTO>> {
+        + RoomUserId: string
+        + UserId: string
+        + Role: int
+        + UserStatus: int
+        + JoinTime: DateTime?
+        + UpdatedAt: DateTime?
+        + User: UserVM
+    }
+    class UserVM <<DTO>> {
+        + UserId: string
+        + Fullname: string
+        + UserCode: string
+        + Email: string
+        + Avatar: string
+        + Sex: int?
+        + CreateAt: DateTime?
+        + UpdateAt: DateTime?
+    }
+    class SearchResult <<DTO>> {
+        + Result: object?
+        + TotalPage: int
+        + PageSize: int
+        + CurrentPage: int
+        + Total: int
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Student
+        Lecture
+        Supervisor
+        Admin
+    }
+    enum UserStatus {
+        Inactive
+        Active
+        Pending
+    }
+}
+
+' Relationships
+RoomUserController ..> IRoomUserService : <<uses>>
+RoomUserController ..> SearchRoomUserVM : <<uses>>
+IRoomUserService <|.. RoomUserService
+RoomUserService ..> IRoomUserRepository : <<uses>>
+RoomUserService ..> IUserRepository : <<uses>>
+RoomUserService ..> IRoomRepository : <<uses>>
+RoomUserService ..> RoomWithUserVM : <<maps to>>
+SearchRoomUserVM --|> SearchRequestVM
+RoomWithUserVM o-- UserInRoomVM : <<has>>
+UserInRoomVM o-- UserVM : <<has>>
+SearchResult o-- RoomWithUserVM : <<has>>
+UserInRoomVM ..> RoleEnum : <<uses>>
+UserInRoomVM ..> UserStatus : <<uses>>
+
+@enduml

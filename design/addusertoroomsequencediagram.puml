@@ -1,0 +1,147 @@
+@startuml
+title Add User To Room Sequence Diagram 
+
+actor "User" as Client
+boundary ":ButtonAddUserToRoom" as UI <<boundary>>
+control ":RoomUserController" as Controller <<controller>>
+participant ":RoomUserService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "RoomUserRepository" as RoomUserRepo <<repository>>
+entity "RoomRepository" as RoomRepo <<repository>>
+entity "UserRepository" as UserRepo <<repository>>
+participant ":LogService" as Log <<service>>
+
+database "Database" as DB
+
+== Add User To Room ==
+
+Client -> UI: Submit add user to room form
+activate UI
+UI -> Controller: POST /AddUserToRoom (roomId, userIdsOrCodes)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: AddStudentsToRoom(roomId, userIdsOrCodes, userToken)
+  activate Service
+
+  '--- Authorization ---
+  Service -> UserRepo: CanManageRoomUsers(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check user role/permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt Not allowed
+    Service --> Controller: "You do not have permission to add users to room."
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    '--- Validate inputs ---
+    Service -> Service: Validate(roomId, userIdsOrCodes)
+    alt Invalid input
+      Service --> Controller: "RoomId and User Codes/IDs are required."
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show invalid input
+      deactivate UI
+    else Valid input
+      '--- Ensure room exists ---
+      Service -> RoomRepo: GetById(roomId)
+      activate RoomRepo
+      RoomRepo -> DB: [SQL: SELECT room by id]
+      DB --> RoomRepo: room|null
+      RoomRepo --> Service: exists? (bool)
+      deactivate RoomRepo
+
+      alt Room not found
+        Service --> Controller: "Room not found."
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show room not found
+        deactivate UI
+      else Room found
+        '--- Resolve users from ids or codes ---
+        Service -> UserRepo: GetUsersByIdsOrCodes(userIdsOrCodes)
+        activate UserRepo
+        UserRepo -> DB: [SQL: SELECT users WHERE Id IN (...) OR Code IN (...)]
+        DB --> UserRepo: users
+        UserRepo --> Service: users
+        deactivate UserRepo
+
+        '--- Find duplicates already in room ---
+        Service -> RoomUserRepo: GetExistingInRoom(roomId, users)
+        activate RoomUserRepo
+        RoomUserRepo -> DB: [SQL: SELECT UserId FROM RoomUsers WHERE RoomId=@id AND UserId IN (...)]
+        DB --> RoomUserRepo: existing
+        RoomUserRepo --> Service: existing
+        deactivate RoomUserRepo
+
+        Service -> Service: Split -> addedInputs / duplicatedInputs / invalidInputs
+
+        alt No new users to add
+          Service --> Controller: "No new users to add."  ' include lists in payload if cần
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show no new users
+          deactivate UI
+        else Have new users
+          '--- Transaction & insert ---
+          Service -> UoW: BeginTransactionAsync()
+          activate UoW
+          UoW -> DB: BEGIN
+          DB --> UoW: ok
+          deactivate UoW
+
+          Service -> RoomUserRepo: AddUsersToRoom(roomId, addedInputs)
+          activate RoomUserRepo
+          RoomUserRepo -> DB: [SQL: bulk INSERT INTO RoomUsers]
+          DB --> RoomUserRepo: inserted
+          RoomUserRepo --> Service: ok
+          deactivate RoomUserRepo
+
+          Service -> UoW: CommitTransactionAsync()
+          activate UoW
+          UoW -> DB: COMMIT
+          DB --> UoW: ok
+          deactivate UoW
+
+          '--- Log activity (optional) ---
+          Service -> Log: WriteActivity(AddUserLogVM)
+          activate Log
+          Log --> Service: logResult
+          deactivate Log
+
+          alt Log failed
+            Service --> Controller: "Added, but failed to write log."
+            deactivate Service
+            Controller --> UI: 200 OK { success: true, warning: true }
+            deactivate Controller
+            UI --> Client: Show success with warning
+            deactivate UI
+          else Log ok
+            Service --> Controller: ""
+            deactivate Service
+            Controller --> UI: 200 OK { success: true }
+            deactivate Controller
+            UI --> Client: Show success
+            deactivate UI
+          end alt
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

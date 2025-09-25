@@ -1,0 +1,28 @@
+@startuml
+title Logout Sequence Diagram
+
+actor "User" as Client
+boundary ":ButtonLogout" as UI <<boundary>>
+control "AuthController" as Controller <<controller>>
+participant ":AuthenticateService" as Service <<service>>
+
+== Logout ==
+
+Client -> UI: Click "Logout" button
+activate UI
+UI -> Controller: GET /logout
+activate Controller
+Controller -> Service: DoLogout()
+activate Service
+
+Service -> Service: Delete "JwtToken" cookie
+Service -> Service: Clear session
+Service --> Controller: result
+deactivate Service
+
+Controller --> UI: 200 OK { success:true, message:"Logout successful!" }
+deactivate Controller
+UI --> Client: Show "Logout successful"
+deactivate UI
+
+@enduml

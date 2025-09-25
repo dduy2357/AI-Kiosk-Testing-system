@@ -1,0 +1,125 @@
+@startuml
+title Create Exam Sequence Diagram 
+actor "User" as Client
+boundary ":ButtonCreateExam" as UI <<boundary>>
+control "ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "examRepository" as ExamRepo <<repository>>
+entity "roomRepository" as RoomRepo <<repository>>
+entity "questionBankRepository" as QbRepo <<repository>>
+entity "examQuestionRepository" as EqRepo <<repository>>
+entity "examSupervisorRepository" as EsRepo <<repository>>
+
+database "Database" as DB
+
+== Create Exam ==
+
+Client -> UI: Fill form & click Create
+activate UI
+UI -> Controller: POST /exams/create (AddExamRequest)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated." }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: Handle(request, userId)
+  activate Service
+
+  ' Validate room
+  Service -> RoomRepo: ExistsAsync(request.RoomId)
+  RoomRepo -> DB: [SQL: EXISTS room by id]
+  DB --> RoomRepo: true|false
+  RoomRepo --> Service: exists?
+
+  alt Room not found
+    Service --> Controller: 400 BadRequest { message: "Room not found." }
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show error
+    deactivate UI
+  else Room ok
+    ' Load bank + questions
+    Service -> QbRepo: GetWithQuestionsAsync(request.QuestionBankId)
+    QbRepo -> DB: [SQL: SELECT bank + questions]
+    DB --> QbRepo: bank|null
+    QbRepo --> Service: bank|null
+
+    alt Invalid or empty question bank
+      Service --> Controller: 400 BadRequest { message: "Invalid or empty question bank." }
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show error
+      deactivate UI
+    else Bank ok
+      ' Domain checks
+      Service -> Service: Validate selected IDs ⊆ bank, same type, total points > 0
+
+      alt Validation failed
+        Service --> Controller: 400 BadRequest { message: "<reason>" }
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show error
+        deactivate UI
+      else Validation ok
+        ' Begin transaction
+        Service -> UoW: BeginTransactionAsync()
+        UoW -> DB: BEGIN
+        DB --> UoW: started
+
+        ' Persist
+        Service -> ExamRepo: AddAsync(exam)
+        ExamRepo -> DB: [SQL: INSERT Exam]
+        DB --> ExamRepo: inserted (ExamId)
+        ExamRepo --> Service: ok
+
+        Service -> EqRepo: AddAsync(examQuestions)
+        EqRepo -> DB: [SQL: INSERT ExamQuestions (bulk/loop)]
+        DB --> EqRepo: inserted
+        EqRepo --> Service: ok
+
+        Service -> EsRepo: AddAsync(examSupervisors)
+        EsRepo -> DB: [SQL: INSERT ExamSupervisors]
+        DB --> EsRepo: inserted
+        EsRepo --> Service: ok
+
+        ' Decide success vs exception
+        alt Persist success
+          Service -> UoW: SaveChangesAsync()
+          UoW -> DB: SAVE
+          DB --> UoW: saved
+
+          Service -> UoW: CommitTransactionAsync()
+          UoW -> DB: COMMIT
+          DB --> UoW: committed
+
+          Service --> Controller: 200 OK { message: "Exam created." }
+          deactivate Service
+          Controller --> UI: 200 OK { success: true }
+          deactivate Controller
+          UI --> Client: Show success
+          deactivate UI
+        else Exception during persistence
+          Service -> UoW: RollbackTransactionAsync()
+          UoW -> DB: ROLLBACK
+          DB --> UoW: rolled back
+
+          Service --> Controller: 400 BadRequest { message: "Error creating exam." }
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show error
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

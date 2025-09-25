@@ -1,0 +1,87 @@
+@startuml
+title View Exam Answer Sequence Diagram (with repositories, concise SQL)
+
+actor "User" as Client
+boundary ":ExamAnswerUI" as UI <<boundary>>
+control "ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+
+
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "StudentAnswerRepository" as AnswerRepo <<repository>>
+entity "QuestionRepository" as QRepo <<repository>>
+
+database "Database" as DB
+
+== View Exam Answer ==
+
+Client -> UI: Click **View exam answer** (examId, studentId)
+activate UI
+UI -> Controller: GET /view-exam-answer/{examId}/{studentId}
+activate Controller
+Controller -> Service: ViewExamAnswer(examId, studentId, userId)
+activate Service
+
+' --- Authorization (Teacher/Admin only) ---
+Service -> Service: Ensure role ∈ {Teacher, Admin}
+alt Not allowed
+  Service --> Controller: 403 Forbidden { message: "You do not have permission to view exam answers." }
+  deactivate Service
+  Controller --> UI: 403 Forbidden
+  deactivate Controller
+  UI --> Client: Show forbidden
+  deactivate UI
+else Allowed
+  ' --- Load StudentExam (must exist) ---
+  Service -> StuExamRepo: GetByExamAndStudent(examId, studentId)
+  activate StuExamRepo
+  StuExamRepo -> DB: [SQL: SELECT * FROM StudentExams WHERE ExamId=@eid AND StudentId=@sid]
+  DB --> StuExamRepo: studentExam|null
+  StuExamRepo --> Service: studentExam|null
+  deactivate StuExamRepo
+
+  alt StudentExam not found
+    Service --> Controller: 400 BadRequest { message: "StudentExam not found." }
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show not found
+    deactivate UI
+  else Found
+    ' --- Optional: verify teacher is assigned to this exam ---
+    Service -> Service: CheckTeacherAccess(userId, studentExam.ExamId)
+    alt Not assigned
+      Service --> Controller: 403 Forbidden { message: "You are not assigned to this exam." }
+      deactivate Service
+      Controller --> UI: 403 Forbidden
+      deactivate Controller
+      UI --> Client: Show forbidden
+      deactivate UI
+    else Assigned
+      ' --- Get student's answers & related questions (single batched fetches) ---
+      Service -> AnswerRepo: GetByStudentExamId(studentExam.Id)
+      activate AnswerRepo
+      AnswerRepo -> DB: [SQL: SELECT QuestionId, UserAnswer, IsCorrect, PointsEarned FROM StudentAnswers WHERE StudentExamId=@seId]
+      DB --> AnswerRepo: answers
+      AnswerRepo --> Service: answers
+      deactivate AnswerRepo
+
+      Service -> QRepo: GetByIds(distinct QuestionIds)
+      activate QRepo
+      QRepo -> DB: [SQL: SELECT QuestionId, Content, CorrectAnswer, Point FROM Questions WHERE QuestionId IN (...)]
+      DB --> QRepo: questions
+      QRepo --> Service: questions
+      deactivate QRepo
+
+      ' --- Map to VMs ---
+      Service -> Service: Join answers+questions → List<ExamAnswerVM>
+      Service --> Controller: 200 OK { data: ExamAnswerVM[] }
+      deactivate Service
+      Controller --> UI: 200 OK { success: true, data }
+      deactivate Controller
+      UI --> Client: Render exam answers
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

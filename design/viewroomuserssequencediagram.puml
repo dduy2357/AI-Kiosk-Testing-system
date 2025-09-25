@@ -1,0 +1,108 @@
+@startuml
+title View Users In Room Sequence Diagram 
+
+actor "User" as Client
+boundary ":NavigationUI" as UI <<boundary>>
+control "RoomUserController" as Controller <<controller>>
+participant ":RoomUserService" as Service <<service>>
+
+entity "RoomUserRepository" as RoomUserRepo <<repository>>
+entity "RoomRepository" as RoomRepo <<repository>>
+entity "UserRepository" as UserRepo <<repository>>
+
+database "Database" as DB
+
+== View Users In Room ==
+
+Client -> UI: Request view users in room
+activate UI
+UI -> Controller: GET /GetUsersInRoom (SearchRoomUserVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized message
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetUsersInRoom(search)
+  activate Service
+
+  '--- Authorization (quick check) ---
+  Service -> UserRepo: CanViewRoomUsers(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check user role/permission]
+  DB --> UserRepo: ok|null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt User is not allowed
+    Service --> Controller: "You do not have permission to view users in room."
+    deactivate Service
+    Controller --> UI: 403 Forbidden { success: false, message }
+    deactivate Controller
+    UI --> Client: Show forbidden message
+    deactivate UI
+  else User is allowed
+    '--- Validate RoomId ---
+    alt RoomId missing
+      Service --> Controller: "RoomId is required."
+      deactivate Service
+      Controller --> UI: 400 BadRequest { success: false, message }
+      deactivate Controller
+      UI --> Client: Show missing RoomId
+      deactivate UI
+    else RoomId provided
+      '--- Ensure room exists (optional) ---
+      Service -> RoomRepo: GetById(search.RoomId)
+      activate RoomRepo
+      RoomRepo -> DB: [SQL: get room by id]
+      DB --> RoomRepo: room|null
+      RoomRepo --> Service: exists? (bool)
+      deactivate RoomRepo
+
+      alt Room not found
+        Service --> Controller: "Room not found."
+        deactivate Service
+        Controller --> UI: 400 BadRequest { success: false, message }
+        deactivate Controller
+        UI --> Client: Show not found
+        deactivate UI
+      else Room found
+        '--- Count total users in room (with filters) ---
+        Service -> RoomUserRepo: Count(search)
+        activate RoomUserRepo
+        RoomUserRepo -> DB: [SQL: COUNT(*) FROM RoomUsers WHERE RoomId=@id AND <filters>]
+        DB --> RoomUserRepo: total
+        RoomUserRepo --> Service: total
+        deactivate RoomUserRepo
+
+        '--- Get paged users in room ---
+        Service -> RoomUserRepo: GetUsersInRoom(search)
+        activate RoomUserRepo
+        RoomUserRepo -> DB: [SQL: SELECT basic fields FROM RoomUsers WHERE RoomId=@id AND <filters> ORDER BY ... LIMIT/OFFSET]
+        DB --> RoomUserRepo: rows
+        RoomUserRepo --> Service: rows
+        deactivate RoomUserRepo
+
+        alt No users found
+          Service --> Controller: "No users found."
+          deactivate Service
+          Controller --> UI: 400 BadRequest { success: false, message }
+          deactivate Controller
+          UI --> Client: Show no users found
+          deactivate UI
+        else Users found
+          Service -> Service: Map to RoomWithUserVM & wrap SearchResult
+          Service --> Controller: { success: true, data }
+          deactivate Service
+          Controller --> UI: 200 OK { success: true, message, data }
+          deactivate Controller
+          UI --> Client: Display users in room
+          deactivate UI
+        end alt
+      end alt
+    end alt
+  end alt
+end alt
+@enduml

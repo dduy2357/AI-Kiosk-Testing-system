@@ -1,0 +1,102 @@
+@startuml
+' Simplified Submit Exam Class Diagram (bỏ Strategy, sát code thực tế SubmitExam)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title Submit Exam Class Diagram
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _iService: IStudentExamService
+        + SubmitExam(request: SubmitExamRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + SubmitExam(request: SubmitExamRequest, usertoken: string, context: HttpContext): Task<string>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + SubmitExam(request: SubmitExamRequest, usertoken: string, context: HttpContext): Task<string>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetByIdWithExam(studentExamId: string, examId: string, userId: string)
+        + Update(studentExam)
+    }
+    interface IStudentAnswerRepository {
+        + GetByStudentExamAndQuestionIds(studentExamId: string, questionIds: List<string>)
+        + GetByStudentExamId(studentExamId: string)
+        + UpdateRange(answers: List<StudentAnswer>)
+        + AddRangeAsync(answers: List<StudentAnswer>)
+    }
+    interface IExamQuestionRepository {
+        + GetByExamAndQuestionIds(examId: string, questionIds: List<string>)
+    }
+}
+
+package "Models & DTOs" {
+    class SubmitExamRequest <<DTO>> {
+        + StudentExamId: string
+        + ExamId: string
+        + Answers: List<StudentAnswerVM>
+    }
+    class StudentAnswerVM <<DTO>> {
+        + QuestionId: string
+        + UserAnswer: string
+    }
+}
+
+package "Utilities" {
+    class Utils <<static>> {
+        + GetClientIpAddress(context: HttpContext): string
+        + GetClientBrowser(context: HttpContext): string
+    }
+    class SubmitExamValidator <<static>> {
+        + Validate(studentExam, now: DateTime): string
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+StudentExamController ..> SubmitExamRequest : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> SubmitExamRequest : <<uses>>
+StudentExamService ..> IStudentExamRepository : <<uses>>
+StudentExamService ..> IStudentAnswerRepository : <<uses>>
+StudentExamService ..> IExamQuestionRepository : <<uses>>
+StudentExamService ..> Utils : <<uses>>
+StudentExamService ..> SubmitExamValidator : <<uses>>
+SubmitExamRequest o-- StudentAnswerVM : <<contains>>
+
+@enduml

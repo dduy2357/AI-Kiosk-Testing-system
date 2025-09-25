@@ -1,0 +1,102 @@
+@startuml
+title View List Question Bank Sequence Diagram
+
+actor "User" as Client
+boundary ":NavigationUI" as UI <<boundary>>
+control "QuestionBankController" as Controller <<controller>>
+participant ":QuestionBankService" as Service <<service>>
+control "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "QuestionBankRepository" as QbRepo <<repository>>
+entity "QuestionRepository" as QRepo <<repository>>
+entity "SubjectRepository" as SubjRepo <<repository>>
+entity "UserRepository" as UserRepo <<repository>>
+
+database "Database" as DB
+
+== View List Question Bank ==
+
+Client -> UI: Request view question banks
+activate UI
+UI -> Controller: GET /get-list (QuestionBankFilterVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { message: "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized message
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetList(input, userToken)
+  activate Service
+
+  '--- Quick authorization check ---
+  Service -> UserRepo: CanViewQuestionBanks(userId)
+  activate UserRepo
+  UserRepo -> DB: [SQL: check user role/permission]
+  DB --> UserRepo: row | null
+  UserRepo --> Service: allowed? (bool)
+  deactivate UserRepo
+
+  alt User is not authorized
+    Service --> Controller: "You do not have permission to access question banks."
+    deactivate Service
+    Controller --> UI: 403 Forbidden { success: false, message }
+    deactivate Controller
+    UI --> Client: Show forbidden message
+    deactivate UI
+  else User is authorized
+    '--- Count total (for paging) ---
+    Service -> QbRepo: Count(search)
+    activate QbRepo
+    QbRepo -> DB: [SQL: COUNT(*) FROM QuestionBanks WHERE <filters>]
+    DB --> QbRepo: Total
+    QbRepo --> Service: Total
+    deactivate QbRepo
+
+    '--- Get paged QuestionBanks (id + basic info) ---
+    Service -> QbRepo: GetQuestionBanks(search)
+    activate QbRepo
+    QbRepo -> DB: [SQL: SELECT basic fields FROM QuestionBanks WHERE <filters> ORDER BY CreatedAt DESC LIMIT/OFFSET]
+    DB --> QbRepo: rows (qbs)
+    QbRepo --> Service: qbs
+    deactivate QbRepo
+
+    alt No question banks found
+      Service --> Controller: "No found any question bank"
+      deactivate Service
+      Controller --> UI: 400 BadRequest { success: false, message }
+      deactivate Controller
+      UI --> Client: Show no question banks found
+      deactivate UI
+    else Question banks found
+      '--- Load subjects for returned banks (optional) ---
+      Service -> SubjRepo: GetByIds(subjectIds)
+      activate SubjRepo
+      SubjRepo -> DB: [SQL: SELECT SubjectId, SubjectName WHERE SubjectId IN (...)]
+      DB --> SubjRepo: rows (subjects)
+      SubjRepo --> Service: subjects
+      deactivate SubjRepo
+
+      '--- Question counts per bank (by type) ---
+      Service -> QRepo: CountQuestionsByBankIds(bankIds)
+      activate QRepo
+      QRepo -> DB: [SQL: SELECT QuestionBankId, COUNT(*), SUM(by type) GROUP BY QuestionBankId]
+      DB --> QRepo: rows (counts)
+      QRepo --> Service: counts
+      deactivate QRepo
+
+      '--- Map to QuestionBankListVM and build response ---
+      Service -> Service: Map(qbs, subjects, counts) -> List<QuestionBankListVM>
+      Service -> Service: Compute stats (TotalPage, CurrentPage, PageSize, Total)
+      Service --> Controller: QuestionBankListResponse { Result, TotalPage, PageSize, CurrentPage, Total }
+      deactivate Service
+
+      Controller --> UI: 200 OK { success: true, message, data }
+      deactivate Controller
+      UI --> Client: Display question banks list
+      deactivate UI
+    end alt
+  end alt
+end alt
+@enduml

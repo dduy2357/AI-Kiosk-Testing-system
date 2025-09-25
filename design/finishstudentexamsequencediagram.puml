@@ -1,0 +1,123 @@
+@startuml
+title Finish Student Exam — Sequence Diagram (Observer pattern, short SQL)
+
+actor "User" as Client
+boundary ":ExamMonitorUI" as UI <<boundary>>
+control "MonitoringController" as Controller <<controller>>
+participant ":MonitoringService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+' Repositories & UoW
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "StudentAnswerRepository" as AnsRepo <<repository>>
+entity "ExamQuestionRepository" as EQRepo <<repository>>
+
+
+' Observer pattern
+participant "FinishExamSubject" as Subject
+participant "FinishExamObserver" as Observer
+
+database "DB" as DB
+
+== Finish Student Exam ==
+
+Client -> UI: Click **Finish exam**
+activate UI
+UI -> Controller: POST /finish-student-exam (FinishStudentExam)
+deactivate UI
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized { "User not authenticated" }
+  deactivate Controller
+  UI --> Client: Show unauthorized
+else User authenticated
+  Controller -> Service: FinishStudentExam(finish, userId)
+  activate Service
+
+  ' 1) Begin transaction
+  Service -> UoW: Begin()
+  activate UoW
+  UoW -> DB: BEGIN
+  DB --> UoW: ok
+  deactivate UoW
+
+  ' 2) Load StudentExam (must be InProgress)
+  Service -> StuExamRepo: GetInProgress(finish.StudentExamId)
+  activate StuExamRepo
+  StuExamRepo -> DB: SELECT * FROM StudentExams WHERE Id=? AND Status='InProgress' LIMIT 1
+  DB --> StuExamRepo: studentExam|null
+  StuExamRepo --> Service: studentExam|null
+  deactivate StuExamRepo
+
+  alt StudentExam not found
+    Service -> UoW: Rollback()
+    activate UoW
+    UoW -> DB: ROLLBACK
+    DB --> UoW: ok
+    deactivate UoW
+    Service --> Controller: 400 { "Student exam not found or already submitted" }
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show error
+  else StudentExam OK
+    ' 3) Get answers
+    Service -> AnsRepo: GetByStudentExamId(se.Id)
+    activate AnsRepo
+    AnsRepo -> DB: SELECT * FROM StudentAnswers WHERE StudentExamId=?
+    DB --> AnsRepo: answers
+    AnsRepo --> Service: answers
+    deactivate AnsRepo
+
+    ' 4) Auto-grade for non-Essay
+    alt studentExam.ExamType != 'Essay'
+      Service -> EQRepo: GetByExamAndQuestionIds(se.ExamId, answers.QIds)
+      activate EQRepo
+      EQRepo -> DB: SELECT QuestionId, CorrectAnswer, Point FROM ExamQuestions WHERE ExamId=? AND QuestionId IN (...)
+      DB --> EQRepo: eqMap
+      EQRepo --> Service: eqMap
+      deactivate EQRepo
+
+      Service -> Service: compute IsCorrect, PointsEarned, totalScore
+      Service -> AnsRepo: UpdateRange(answers)
+      activate AnsRepo
+      AnsRepo -> DB: UPDATE StudentAnswers SET IsCorrect=?, PointsEarned=? WHERE Id IN (...)
+      DB --> AnsRepo: ok
+      AnsRepo --> Service: ok
+      deactivate AnsRepo
+    end alt
+
+    ' 5) Update StudentExam -> Submitted
+    Service -> StuExamRepo: UpdateSubmitted(se.Id, totalScore, now)
+    activate StuExamRepo
+    StuExamRepo -> DB: UPDATE StudentExams SET Status='Submitted', Score=?, SubmitTime=? WHERE Id=?
+    DB --> StuExamRepo: ok
+    StuExamRepo --> Service: ok
+    deactivate StuExamRepo
+
+    ' 6) Commit
+    Service -> UoW: Commit()
+    activate UoW
+    UoW -> DB: COMMIT
+    DB --> UoW: ok
+    deactivate UoW
+
+    ' 7) Notify observers
+    Service -> Subject: NotifyFinish(se.ExamId, se.Id, userId)
+    activate Subject
+    Subject -> Observer: OnExamFinished(examId, studentExamId, userId)
+    activate Observer
+    Observer --> Subject: handled
+    deactivate Observer
+    Subject --> Service: notified
+    deactivate Subject
+
+    ' 8) Return to UI
+    Service --> Controller: 200 { success:true }
+    deactivate Service
+    Controller --> UI: 200 OK
+    deactivate Controller
+    UI --> Client: Show success
+  end alt
+end alt
+@enduml

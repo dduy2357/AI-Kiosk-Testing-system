@@ -1,0 +1,128 @@
+@startuml
+title Send Violation — Sequence Diagram
+
+actor "User" as Client
+boundary ":ViolationUI" as UI <<boundary>>
+control "StudentViolationController" as Controller <<controller>>
+participant ":StudentViolationService" as Service <<service>>
+participant ":S3Service" as S3
+participant ":EmailHandler" as Email
+participant ":LogService" as Log
+
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "StudentViolationRepository" as ViolRepo <<repository>>
+database "DB" as DB
+
+== Send Violation ==
+
+Client -> UI: Open form / Submit
+activate UI
+UI -> Controller: POST /violations/create (SendStudentViolationVM)
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: Create(send, userId)
+  activate Service
+
+  ' permission check (optional)
+  Service -> DB: [SQL] SELECT 1 FROM UserRoles WHERE UserId=? AND Role IN('Admin','Supervisor') LIMIT 1
+  DB --> Service: 1|null
+
+  alt Not allowed
+    Service --> Controller: 403 Forbidden
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    alt send is null
+      Service --> Controller: 400 BadRequest "Student violation data is null"
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show error
+      deactivate UI
+    else Valid data
+      ' verify StudentExam exists
+      Service -> StuExamRepo: GetById(send.StudentExamId)
+      activate StuExamRepo
+      StuExamRepo -> DB: [SQL] SELECT Id,StudentId,Email FROM StudentExams WHERE Id=? LIMIT 1
+      DB --> StuExamRepo: studentExam|null
+      StuExamRepo --> Service: studentExam|null
+      deactivate StuExamRepo
+
+      alt StudentExam not found
+        Service --> Controller: 400 BadRequest "Student exam not found"
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show not found
+        deactivate UI
+      else Found
+        ' upload screenshot if provided
+        alt send.ScreenshotPath exists
+          Service -> S3: UploadFileAsync(key, file)
+          activate S3
+          S3 --> Service: screenshotUrl
+          deactivate S3
+        else no screenshot
+          Service -> Service: screenshotUrl = ""
+        end
+
+        ' persist violation
+        Service -> ViolRepo: AddViolation(send + screenshotUrl)
+        activate ViolRepo
+        ViolRepo -> DB: [SQL] INSERT INTO StudentViolations(StudentExamId,Message,ScreenshotPath,CreatedAt) VALUES(?,?,?,UTC_TIMESTAMP())
+        DB --> ViolRepo: inserted
+        ViolRepo --> Service: ok
+        deactivate ViolRepo
+
+        ' send mail (optional)
+        alt send.IsSendMail
+          alt studentExam.Email is null
+            Service --> Controller: 400 BadRequest "Student email not found."
+            deactivate Service
+            Controller --> UI: 400 BadRequest
+            deactivate Controller
+            UI --> Client: Show error
+            deactivate UI
+          else has email
+            Service -> Email: SendEmailAsync(studentExam.Email,"Violation",send.Message)
+            activate Email
+            Email --> Service: mailSent
+            deactivate Email
+          end
+        end
+
+        ' write activity log
+        Service -> Log: WriteActivity(AddUserLogVM)
+        activate Log
+        Log --> Service: msg
+        deactivate Log
+
+        alt msg not empty
+          Service --> Controller: 400 BadRequest msg
+          deactivate Service
+          Controller --> UI: 400 BadRequest
+          deactivate Controller
+          UI --> Client: Show error
+          deactivate UI
+        else success
+          Service --> Controller: 200 OK { success:true }
+          deactivate Service
+          Controller --> UI: 200 OK
+          deactivate Controller
+          UI --> Client: Show success
+          deactivate UI
+        end
+      end
+    end
+  end
+end
+@enduml

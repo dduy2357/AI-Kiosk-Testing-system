@@ -1,0 +1,77 @@
+@startuml
+
+title Add Face Capture (Send Recording) Sequence Diagram
+
+actor "User" as Client
+boundary "c:FaceCaptureController" as Controller
+control "s:FaceCaptureService" as Service
+database "Database" as DB
+control "S3Service" as S3
+
+== Add Face Capture (Send Recording) ==
+
+Client -> Controller: POST /add (FaceCaptureRequest)
+activate Controller
+
+alt User not authenticated
+    Controller -> Controller: Log unauthorized access attempt
+    Controller --> Client: 401 Unauthorized { message: "User not authenticated." }
+    deactivate Controller
+else User authenticated
+    Controller -> Service: AddCapture(input)
+    activate Service
+
+    Service -> DB: Get StudentExam (StudentExamId, Status=InProgress)
+    activate DB
+    alt StudentExam not found or not in progress
+        DB --> Service: Not found
+        deactivate DB
+        Service --> Controller: "Student exam not found or students not in the exam process."
+        deactivate Service
+        Controller --> Client: 400 BadRequest { success: false, message }
+        deactivate Controller
+    else StudentExam found
+        DB --> Service: StudentExam
+        deactivate DB
+        Service -> DB: Get Exam (ExamId)
+        activate DB
+        alt Exam not found
+            DB --> Service: Not found
+            deactivate DB
+            Service --> Controller: "Exam not found."
+            deactivate Service
+            Controller --> Client: 400 BadRequest { success: false, message }
+            deactivate Controller
+        else Exam found
+            DB --> Service: Exam
+            deactivate DB
+            Service -> S3: UploadFileAsync(key, ImageCapture)
+            activate S3
+            alt Upload error
+                S3 --> Service: Exception
+                deactivate S3
+                Service --> Controller: "An error occurred while uploading to S3! ..."
+                deactivate Service
+                Controller --> Client: 400 BadRequest { success: false, message }
+                deactivate Controller
+            else Upload success
+                S3 --> Service: uploadedUrls
+                deactivate S3
+                Service -> DB: Add new FaceCapture
+                activate DB
+                DB --> Service: Added
+                deactivate DB
+                Service -> DB: SaveChanges
+                activate DB
+                DB --> Service: Saved
+                deactivate DB
+                Service --> Controller: ""
+                deactivate Service
+                Controller --> Client: 200 OK { success: true, message }
+                deactivate Controller
+            end alt
+        end alt
+    end alt
+end alt
+
+@enduml 

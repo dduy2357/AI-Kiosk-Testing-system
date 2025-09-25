@@ -1,0 +1,96 @@
+@startuml
+title Extend Exam Duration Sequence Diagram 
+
+actor "User" as Client
+boundary ":MonitoringUI" as UI <<boundary>>
+control "MonitoringController" as Controller <<controller>>
+participant ":MonitoringService" as Service <<service>>
+control "UnitOfWork" as UoW <<unitOfWork>>
+entity "StudentExamRepository" as StudentExamRepo <<repository>>
+participant ":MonitoringSubject" as Subject <<subject>>
+participant ":LoggerObserver" as LoggerObs <<observer>>
+participant ":TimerDisplayObserver" as TimerObs <<observer>>
+database "Database" as DB
+
+== Add Student Extra Time ==
+
+Client -> UI: Open form / submit
+activate UI
+UI -> Controller: POST /add-student-extra-time
+activate Controller
+
+alt not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else authenticated
+  Controller -> Service: AddStudentExtraTime(...)
+  activate Service
+
+  Service -> UoW: BEGIN TRANSACTION
+  activate UoW
+  UoW -> DB: BEGIN
+  DB --> UoW: ok
+  deactivate UoW
+
+  Service -> StudentExamRepo: GetStudentExamWithExamUser(id, InProgress, false)
+  activate StudentExamRepo
+  StudentExamRepo -> DB: SELECT * FROM StudentExams WHERE StudentExamId=@id AND Status=@InProgress;
+  DB --> StudentExamRepo: row | null
+  StudentExamRepo --> Service: row | null
+  deactivate StudentExamRepo
+
+  alt not found
+    Service -> UoW: ROLLBACK
+    activate UoW
+    UoW -> DB: ROLLBACK
+    DB --> UoW: ok
+    deactivate UoW
+    Service --> Controller: "Student not found"
+    deactivate Service
+    Controller --> UI: 400 BadRequest
+    deactivate Controller
+    UI --> Client: Show not found
+    deactivate UI
+  else found
+    Service -> StudentExamRepo: UPDATE ExtraTime
+    activate StudentExamRepo
+    StudentExamRepo -> DB: UPDATE StudentExams SET ExtraTimeMinutes=@extra WHERE StudentExamId=@id;
+    DB --> StudentExamRepo: ok
+    StudentExamRepo --> Service: ok
+    deactivate StudentExamRepo
+
+    Service -> Subject: Notify(...)
+    activate Subject
+    Subject -> LoggerObs: Log(...)
+    activate LoggerObs
+    LoggerObs -> DB: INSERT INTO UserLogs(Action) VALUES('AddExtraTime');
+    DB --> LoggerObs: ok
+    LoggerObs --> Subject: ok
+    deactivate LoggerObs
+
+    opt newSubmitTime exists
+      Subject -> TimerObs: Send(...)
+      activate TimerObs
+      TimerObs --> Subject: sent
+      deactivate TimerObs
+    end opt
+    Subject --> Service: notified
+    deactivate Subject
+
+    Service -> UoW: COMMIT
+    activate UoW
+    UoW -> DB: COMMIT
+    DB --> UoW: ok
+    deactivate UoW
+
+    Service --> Controller: ""
+    deactivate Service
+    Controller --> UI: 200 OK
+    deactivate Controller
+    UI --> Client: Show success
+    deactivate UI
+  end alt
+end alt
+@enduml

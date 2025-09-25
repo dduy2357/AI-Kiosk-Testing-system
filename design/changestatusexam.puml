@@ -1,0 +1,106 @@
+@startuml
+' Simplified Change Status Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+title Change Status Exam Class Diagram
+
+package "Controllers" {
+    class ExamController <<Controller>> {
+        - _examService: IExamService
+        + ChangeStatus(examId: string, request: ChangeStatusRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IExamService <<Interface>> {
+        + ChangeExamStatusAsync(examId: string, newStatus: int, userId: string): Task<(bool Success, string Message)>
+    }
+    class ExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + ChangeExamStatusAsync(examId: string, newStatus: int, userId: string): Task<(bool Success, string Message)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetExamById(examId: string)
+        + UpdateExamStatus(examId: string, newStatus: int)
+    }
+    interface IUserRepository {
+        + GetUserById(userId: string)
+    }
+    interface IUserRoleRepository {
+        + GetUserRoles(userId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class ChangeStatusRequest <<DTO>> {
+        + NewStatus: int
+    }
+}
+
+package "Enums" {
+    enum RoleEnum {
+        Lecture
+        Admin
+    }
+    enum ExamStatus {
+        Draft
+        Published
+        Cancelled
+        Archived
+    }
+    enum ExamLiveStatus {
+        NotStarted
+        Ongoing
+        Completed
+    }
+}
+
+' Relationships
+ExamController ..> IExamService : <<uses>>
+ExamController ..> ChangeStatusRequest : <<uses>>
+IExamService <|.. ExamService : <<implements>>
+ExamService ..> IExamRepository : <<uses>>
+ExamService ..> IUserRepository : <<uses>>
+ExamService ..> IUserRoleRepository : <<uses>>
+ExamService ..> ChangeStatusRequest : <<uses>>
+ExamService ..> ExamStatus : <<uses>>
+ExamService ..> RoleEnum : <<uses>>
+
+@enduml

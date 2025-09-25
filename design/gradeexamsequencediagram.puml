@@ -1,0 +1,138 @@
+@startuml
+title Grade Exam Sequence Diagram (with repositories, concise SQL)
+
+actor "User" as Client
+boundary ":GradeUI" as UI <<boundary>>
+control "ExamController" as Controller <<controller>>
+participant ":ExamService" as Service <<service>>
+entity "UnitOfWork" as UoW <<unitOfWork>>
+
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "StudentAnswerRepository" as AnswerRepo <<repository>>
+entity "QuestionRepository" as QRepo <<repository>>
+entity "ExamRepository" as ExamRepo <<repository>>
+
+database "Database" as DB
+
+== Grade Exam ==
+Client -> UI: Submit **GradeExamRequest**
+activate UI
+UI -> Controller: POST /grade-exam (GradeExamRequest)
+activate Controller
+Controller -> Service: GradeExam(request, userId)
+activate Service
+
+' --- Authorization (Teacher/Admin only) ---
+Service -> Service: Ensure role ∈ {Teacher, Admin}
+alt Not allowed
+  Service --> Controller: 403 Forbidden { message: "You do not have permission to grade exams." }
+  deactivate Service
+  Controller --> UI: 403 Forbidden
+  deactivate Controller
+  UI --> Client: Show forbidden
+  deactivate UI
+else Allowed
+  ' --- Load StudentExam to grade ---
+  Service -> StuExamRepo: GetByExamId(request.ExamId)
+  activate StuExamRepo
+  StuExamRepo -> DB: [SQL] SELECT * FROM StudentExams WHERE ExamId=@eid
+  DB --> StuExamRepo: studentExams
+  StuExamRepo --> Service: studentExams
+  deactivate StuExamRepo
+
+  ' (optional) verify teacher is assigned to this exam
+  Service -> ExamRepo: GetById(request.ExamId)
+  activate ExamRepo
+  ExamRepo -> DB: [SQL] SELECT * FROM Exams WHERE ExamId=@eid
+  DB --> ExamRepo: exam
+  ExamRepo --> Service: exam
+  deactivate ExamRepo
+  Service -> Service: CheckTeacherAccess(userId, exam)
+
+  alt Not assigned
+    Service --> Controller: 403 Forbidden { message: "You are not assigned to this exam." }
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Assigned
+    ' --- Begin transaction ---
+    Service -> UoW: BeginTransactionAsync()
+    activate UoW
+    UoW -> DB: BEGIN
+    DB --> UoW: started
+    deactivate UoW
+
+    ' --- Get answers to update (batch) ---
+    Service -> AnswerRepo: GetByStudentExamId(request.StudentExamId)
+    activate AnswerRepo
+    AnswerRepo -> DB: [SQL] SELECT * FROM StudentAnswers WHERE StudentExamId=@seId
+    DB --> AnswerRepo: currentAnswers
+    AnswerRepo --> Service: currentAnswers
+    deactivate AnswerRepo
+
+    ' --- (optional) get question info for validation ---
+    Service -> QRepo: GetByIds(distinct QuestionIds)
+    activate QRepo
+    QRepo -> DB: [SQL] SELECT QuestionId, Point FROM Questions WHERE QuestionId IN (...)
+    DB --> QRepo: questions
+    QRepo --> Service: questions
+    deactivate QRepo
+
+    ' --- Compute grading, build updates ---
+    Service -> Service: Merge request.ManualScores with currentAnswers → toUpdate, totalScore
+
+    ' --- Persist answers (batch update) ---
+    Service -> AnswerRepo: UpdateRange(toUpdate)
+    activate AnswerRepo
+    AnswerRepo -> DB: [SQL] batch UPDATE StudentAnswers SET IsCorrect=@b, PointsEarned=@p, TeacherComment=@c WHERE Id=@id
+    DB --> AnswerRepo: ok
+    AnswerRepo --> Service: ok
+    deactivate AnswerRepo
+
+    ' --- Update StudentExam summary ---
+    Service -> StuExamRepo: UpdateGrade(request.StudentExamId, totalScore, now, 'Graded')
+    activate StuExamRepo
+    StuExamRepo -> DB: [SQL] UPDATE StudentExams SET Status='Graded', Score=@score, GradedAt=@t WHERE Id=@id
+    DB --> StuExamRepo: ok
+    StuExamRepo --> Service: ok
+    deactivate StuExamRepo
+
+    ' --- Save & Commit ---
+    Service -> UoW: SaveChangesAsync()
+    activate UoW
+    UoW -> DB: SAVE
+    DB --> UoW: saved
+    deactivate UoW
+
+    Service -> UoW: CommitTransactionAsync()
+    activate UoW
+    UoW -> DB: COMMIT
+    DB --> UoW: committed
+    deactivate UoW
+
+    Service --> Controller: 200 OK { message: "Grading successful." }
+    deactivate Service
+    Controller --> UI: 200 OK { success: true }
+    deactivate Controller
+    UI --> Client: Show grading success
+    deactivate UI
+  end alt
+end alt
+
+' --- Failure path / exception ---
+alt Exception
+  Service -> UoW: RollbackTransactionAsync()
+  activate UoW
+  UoW -> DB: ROLLBACK
+  DB --> UoW: rolled back
+  deactivate UoW
+  Service --> Controller: 400 BadRequest { message: "Error while grading exam." }
+  deactivate Service
+  Controller --> UI: 400 BadRequest
+  deactivate Controller
+  UI --> Client: Show error
+  deactivate UI
+end alt
+@enduml

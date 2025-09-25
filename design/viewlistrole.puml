@@ -1,0 +1,104 @@
+@startuml
+'Class Diagram - View List Role
+
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View List Role Class Diagram
+
+package "Controllers" {
+    class AuthorizeController <<Controller>> {
+        - _authorizeService: IAuthorizeService
+        + GetAllRolesPermissions(search: RoleSearchVM)
+    }
+}
+
+package "Services" {
+    interface IAuthorizeService <<Interface>> {
+        + GetAllRolesPermissions(search: RoleSearchVM)
+    }
+    class AuthorizeService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetAllRolesPermissions(search: RoleSearchVM)
+    }
+}
+
+package "Repositories" {
+    interface IRoleRepository {
+        + GetRoles(search: RoleSearchVM)
+        + GetRoleById(roleId: int)
+        + CountRoles(search: RoleSearchVM)
+    }
+    interface IRolePermissionRepository {
+        + GetPermissionsByRole(roleId: int)
+        + GetRolePermissions(roleIds: List<int>)
+    }
+    interface IPermissionRepository {
+        + GetPermissionsByIds(permissionIds: List<int>)
+        + GetAllPermissions()
+    }
+    interface IPermissionCategoryRepository {
+        + GetAllCategories()
+        + GetCategoryById(categoryId: int)
+    }
+}
+package "Models & DTOs" {
+    class RoleSearchVM <<DTO>> {
+        + RoleId
+        + PageSize
+        + CurrentPage
+        + TextSearch
+    }
+    class SearchResult <<DTO>> {
+        + Result
+        + TotalPage
+        + PageSize
+        + CurrentPage
+        + Total
+    }
+    class RoleWithPermissionsVM <<DTO>> {
+        + RoleId
+        + RoleName
+        + Categories
+    }
+}
+
+' Relationships
+AuthorizeController ..> IAuthorizeService : <<uses>>
+AuthorizeController ..> RoleSearchVM : <<uses>>
+IAuthorizeService <|.. AuthorizeService : <<implements>>
+AuthorizeService ..> IRoleRepository : <<uses>>
+AuthorizeService ..> IRolePermissionRepository : <<uses>>
+AuthorizeService ..> IPermissionRepository : <<uses>>
+AuthorizeService ..> IPermissionCategoryRepository : <<uses>>
+AuthorizeService ..> SearchResult : <<returns>>
+SearchResult o-- RoleWithPermissionsVM : <<contains>>
+
+@enduml

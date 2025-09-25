@@ -1,0 +1,263 @@
+@startuml
+left to right direction
+skinparam linetype ortho
+skinparam class {
+    BackgroundColor #FFFACD
+    BorderColor Black
+}
+entity User {
+  * id
+  --
+  email
+  password
+  is_active
+  status
+  last_login
+  last_login_ip
+  full_name
+  date_of_birth
+  gender
+  phone
+  address
+  campus
+  created_at
+  updated_at
+}
+
+entity UserLog {
+  * id
+  --
+  user_id
+  action
+  description
+  ip_address
+  created_at
+}
+
+entity Student {
+  student_code
+  major
+}
+
+entity Teacher {
+  teacher_code
+  department
+  position
+  specialization
+}
+
+entity Administrator {
+  admin_code
+  department
+  position
+}
+
+entity Supervisor {
+  supervisor_code
+  department
+  position
+}
+
+entity Process {
+  * id
+  --
+  name
+  description
+  status
+  created_at
+  updated_at
+}
+
+entity Keyboard {
+  * id
+  --
+  name
+  description
+  status
+  created_at
+  updated_at
+}
+
+entity Notification {
+  * id
+  --
+  user_id
+  message
+  type
+  status
+  created_at
+  updated_at
+}
+
+entity Feedback {
+  * id
+  --
+  user_id
+  exam_id
+  content
+  created_at
+  updated_at
+}
+
+entity Violation {
+  * id
+  --
+  student_id
+  exam_id
+  supervisor_id
+  description
+  evidence
+  status
+  created_at
+  updated_at
+}
+
+entity QuestionBank {
+  * id
+  --
+  name
+  description
+  subject_id
+  status
+  created_at
+  updated_at
+}
+
+entity Question {
+  * id
+  --
+  content
+  type
+  difficulty
+  points
+  correct_answer
+  explanation
+  status
+  created_at
+  updated_at
+}
+
+entity Exam {
+  * id
+  --
+  name
+  description
+  duration
+  total_questions
+  start_time
+  end_time
+  status
+  created_at
+  updated_at
+}
+
+entity ExamOTP {
+  * id
+  --
+  exam_id
+  otp_code
+  expires_at
+  status
+  created_at
+  updated_at
+}
+
+entity ExamLog {
+  * id
+  --
+  exam_id
+  user_id
+  action
+  description
+  created_at
+  image
+}
+
+entity Class {
+  * id
+  --
+  class_code
+  description
+  status
+}
+
+entity Subject {
+  * id
+  --
+  subject_code
+  name
+  credits
+  description
+}
+
+entity Room {
+  * id
+  --
+  capacity
+  type
+  status
+}
+
+entity Role {
+  * id
+  --
+  name
+  description
+}
+
+entity Permission {
+  * id
+  --
+  name
+  action
+  resource
+  description
+}
+
+entity UserRole {
+  * user_id
+  * role_id
+}
+
+entity RolePermission {
+  * role_id
+  * permission_id
+}
+
+User  }o--o{ UserRole : "has"
+Role  }o--o{ UserRole : "assigned"
+Role  }o--o{ RolePermission : "has"
+Permission  }o--o{ RolePermission : "granted"
+User ||--|| Student : "has"
+User ||--|| Teacher : "has"
+User ||--|| Administrator : "has"
+User ||--|| Supervisor : "has"
+User ||--o{ UserLog : "creates"
+Administrator ||--o{ Process : "manages"
+Administrator ||--o{ Keyboard : "manages"
+Supervisor ||--o{ Violation : "reports"
+
+Class ||--o{ Student : "has"
+Room ||--o{ Subject : "contains"
+Room ||--o{ Class : "contains"
+Student  }o--o{ Room : "has"
+Teacher  }o--o{ Room : "manages"
+Teacher ||--o{ QuestionBank : "creates"
+QuestionBank ||--o{ Question : "contains"
+Subject ||--o{ QuestionBank : "has"
+Teacher ||--o{ Exam : "creates"
+Exam  }o--o{ Question : "has"
+Room ||--o{ Exam : "contains"
+Class ||--o{ Exam : "has"
+Student  }o--o{ Exam : "takes"
+Supervisor ||--o{ Exam : "supervises"
+
+User ||--o{ Notification : "receives"
+User ||--o{ Feedback : "gives"
+Exam ||--o{ Feedback : "receives"
+Exam ||--o{ ExamOTP : "has"
+Exam ||--o{ ExamLog : "logs"
+User ||--o{ ExamLog : "performs"
+
+@enduml
+

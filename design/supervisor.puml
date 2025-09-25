@@ -1,0 +1,72 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor darkblue
+  FontColor darkblue
+  FontSize 12
+}
+
+
+skinparam usecase {
+  BackgroundColor yellow
+  BorderColor darkgreen
+  FontColor darkgreen
+  FontSize 10
+}
+
+
+skinparam rectangle {
+  BackgroundColor lightyellow
+  BorderColor orange
+  FontColor darkorange
+  FontSize 14
+  FontStyle bold
+}
+skinparam arrow {
+  Color darkblue
+  FontColor darkblue
+}
+together {
+  actor Supervisor as "Supervisor"
+  actor User as "User"
+}
+
+rectangle "AKTs System" {
+    usecase "View Exam Monitor" as UC1
+    usecase "View Student Activity Logs" as UC2
+    usecase "Export Student Activity Log" as UC4
+    usecase "View Webcam Recording" as UC5
+    usecase "View Webcam Analyzation Report" as UC7
+    usecase "Download Webcam Recording" as UC6
+    usecase "Manual Send Alert" as UC12
+    usecase "Reassign Exam" as UC15
+    usecase "Finish Exam" as UC16
+    usecase "Extend Exam Duration" as UC17
+    usecase "Send Violation" as UC18
+    usecase "View All Connections" as UC19
+    usecase "View Violation Record" as UC20
+    
+}
+User <|-d- Supervisor 
+Supervisor -- UC1
+Supervisor -- UC5
+Supervisor -- UC12
+Supervisor -- UC20
+UC2 .u.> UC19 : <<extend>>
+UC4 .u.> UC19 : <<extend>>
+UC15 .u.> UC19 : <<extend>>
+UC16 .u.> UC19 : <<extend>>
+UC17 .u.> UC19 : <<extend>>
+UC7 .u.> UC5 : <<extend>>
+UC6 .u.> UC5 : <<extend>>
+UC19 .u.> UC1 : <<extend>>
+UC18 .u.> UC20 : <<extend>>
+
+
+
+
+@enduml

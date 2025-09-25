@@ -1,0 +1,150 @@
+@startuml
+skinparam packageBackgroundColor #FFF9DB
+title Package Diagram - Frontend React (Full Import & Access)
+left to right direction
+skinparam linetype ortho
+
+' === Package definitions ===
+package "AppEntry" {
+  [App.tsx]
+  [main.tsx]
+  [vite-env.d.ts]
+}
+
+package "@types" {
+  [custom.d.ts]
+}
+
+package "HOCs" {
+  [withAuth.tsx]
+}
+
+package "Assets" {
+  [assets/]
+}
+
+package "Consts" {
+  [consts/]
+}
+
+package "Helpers" {
+  [helpers/]
+}
+
+package "Components" {
+  [commonIcons/]
+  [consts/]
+  [customFieldsFormik/]
+  [dialogs/]
+  [tableCommon/]
+  [PrivateRoute.tsx]
+}
+
+package "Hooks" {
+  [hooks/]
+}
+
+package "I18n" {
+  [i18n/]
+}
+
+package "Interfaces" {
+  [interfaces/]
+}
+
+package "Layouts" {
+  [layouts/]
+}
+
+package "Lib" {
+  [lib/]
+}
+
+package "Pages" {
+  [pages/]
+}
+
+package "Providers" {
+  [providers/]
+}
+
+package "Routes" {
+  [routes/]
+}
+
+package "Services" {
+  [services/]
+}
+
+package "Stores" {
+  [stores/]
+}
+
+package "Styles" {
+  [styles/]
+}
+
+' === Main import/access relationships ===
+
+' App Entry imports
+AppEntry --> Providers : imports
+AppEntry --> Routes : imports
+AppEntry --> Styles : imports
+
+' Routes imports
+Routes --> Pages : imports
+Routes --> Components : imports
+Routes --> HOCs : imports
+Routes --> Interfaces : imports
+
+' Pages imports
+Pages --> Components : imports
+Pages --> Layouts : imports
+Pages --> Hooks : imports
+Pages --> Services : imports
+Pages --> Stores : imports
+Pages --> Interfaces : imports
+Pages --> I18n : imports
+
+' Components imports
+Components --> Hooks : imports
+Components --> Interfaces : imports
+Components --> I18n : imports
+Components --> Styles : imports
+Components --> Helpers : imports
+
+' Layouts imports
+Layouts --> Components : imports
+Layouts --> Hooks : imports
+Layouts --> Interfaces : imports
+Layouts --> I18n : imports
+
+' Services imports
+Services --> Interfaces : imports
+Services --> Helpers : imports
+Services --> Lib : imports
+
+' Stores imports
+Stores --> Interfaces : imports
+Stores --> Helpers : imports
+
+' Hooks imports
+Hooks --> Services : imports
+Hooks --> Stores : imports
+Hooks --> Interfaces : imports
+
+' Providers imports
+Providers --> Stores : imports
+Providers --> I18n : imports
+
+' HOCs imports
+HOCs --> Components : imports
+HOCs --> Interfaces : imports
+
+' Global imports
+Components --> Assets : imports
+Components --> Consts : imports
+Pages --> Assets : imports
+Pages --> Consts : imports
+
+@enduml

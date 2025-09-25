@@ -1,0 +1,99 @@
+@startuml
+' Simplified View Exam Result Details Class Diagram (giống dạng View List Role)
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Exam Result Details Class Diagram
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _iService: IStudentExamService
+        + GetExamDetail(studentExamId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + GetHistoryExamDetail(studentExamId: string, usertoken: string): Task<(string, StudentExamDetailVM?)>
+    }
+    class StudentExamService <<Service>> {
+        - _context: DbContext
+        + GetHistoryExamDetail(studentExamId: string, usertoken: string): Task<(string, StudentExamDetailVM?)>
+    }
+}
+
+package "Repositories" {
+    interface IStudentExamRepository {
+        + GetById(studentExamId: string)
+    }
+    interface IStudentAnswerRepository {
+        + GetByStudentExamId(studentExamId: string)
+    }
+    interface IQuestionRepository {
+        + GetByIds(questionIds: List<string>)
+    }
+    interface IExamRepository {
+        + GetById(examId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class StudentExamDetailVM <<DTO>> {
+        + ExamTitle: string
+        + Score: decimal
+        + TotalQuestions: int
+        + StartTime: DateTime?
+        + SubmitTime: DateTime?
+        + DurationSpent: int
+        + Answers: List<AnswerDetail>?
+    }
+    class AnswerDetail <<DTO>> {
+        + QuestionId: string
+        + QuestionContent: string
+        + UserAnswer: string?
+        + CorrectAnswer: string?
+        + IsCorrect: bool?
+        + PointsEarned: decimal
+        + TimeSpent: int?
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+StudentExamController ..> StudentExamDetailVM : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> IStudentExamRepository : <<uses>>
+StudentExamService ..> IStudentAnswerRepository : <<uses>>
+StudentExamService ..> IQuestionRepository : <<uses>>
+StudentExamService ..> IExamRepository : <<uses>>
+StudentExamService ..> StudentExamDetailVM : <<returns>>
+StudentExamDetailVM o-- AnswerDetail : <<contains>>
+
+@enduml

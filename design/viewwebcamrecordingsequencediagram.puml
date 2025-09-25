@@ -1,0 +1,91 @@
+@startuml
+title View Webcam Recording — Sequence Diagram 
+
+actor "User" as Client
+boundary ":WebcamUI" as UI <<boundary>>
+control ":FaceCaptureController" as Controller <<controller>>
+participant ":FaceCaptureService" as Service <<service>>
+
+entity "UserRepository" as UserRepo <<repository>>
+entity "StudentExamRepository" as StuExamRepo <<repository>>
+entity "FaceCaptureRepository" as FaceRepo <<repository>>
+
+database "Database" as DB
+
+== View Webcam Recording ==
+
+Client -> UI: Click view webcam recordings (FaceCaptureSearchVM)
+activate UI
+UI -> Controller: GET /get-list
+activate Controller
+
+alt User not authenticated
+  Controller --> UI: 401 Unauthorized
+  deactivate Controller
+  UI --> Client: Show unauthorized
+  deactivate UI
+else User authenticated
+  Controller -> Service: GetList(input)
+  activate Service
+
+  ' --- Check user ---
+  Service -> UserRepo: GetById(userId)
+  activate UserRepo
+  UserRepo -> DB: SELECT * FROM Users WHERE Id=@uid
+  DB --> UserRepo: user | null
+  UserRepo --> Service: user | null
+  deactivate UserRepo
+
+  alt User not allowed
+    Service --> Controller: 403 Forbidden
+    deactivate Service
+    Controller --> UI: 403 Forbidden
+    deactivate Controller
+    UI --> Client: Show forbidden
+    deactivate UI
+  else Allowed
+    ' --- Get student exam ---
+    Service -> StuExamRepo: GetById(input.StudentExamId)
+    activate StuExamRepo
+    StuExamRepo -> DB: SELECT * FROM StudentExams WHERE Id=@seid
+    DB --> StuExamRepo: studentExam | null
+    StuExamRepo --> Service: studentExam | null
+    deactivate StuExamRepo
+
+    alt StudentExam not found
+      Service --> Controller: 400 BadRequest
+      deactivate Service
+      Controller --> UI: 400 BadRequest
+      deactivate Controller
+      UI --> Client: Show not found
+      deactivate UI
+    else Found
+      ' --- Get captures ---
+      Service -> FaceRepo: GetByStudentExamId(seId)
+      activate FaceRepo
+      FaceRepo -> DB: SELECT * FROM FaceCaptures WHERE StudentExamId=@seid
+      DB --> FaceRepo: captures
+      FaceRepo --> Service: captures
+      deactivate FaceRepo
+
+      alt No captures
+        Service --> Controller: 400 BadRequest
+        deactivate Service
+        Controller --> UI: 400 BadRequest
+        deactivate Controller
+        UI --> Client: Show not found
+        deactivate UI
+      else Captures found
+        Service -> Service: Wrap in FaceCaptureVM & SearchResult
+        Service --> Controller: 200 OK { success:true, data:SearchResult(...) }
+        deactivate Service
+        Controller --> UI: 200 OK
+        deactivate Controller
+        UI --> Client: Show webcam recordings
+        deactivate UI
+      end
+    end
+  end
+end
+
+@enduml

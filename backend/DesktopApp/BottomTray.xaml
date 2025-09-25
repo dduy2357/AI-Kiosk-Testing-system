@@ -1,0 +1,57 @@
+﻿<UserControl x:Class="DesktopApp.BottomTray"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:DesktopApp"
+             Loaded="BottomTray_Loaded"
+             mc:Ignorable="d" >
+    
+    <Border Background="#E5E5E5" 
+            BorderBrush="#D0D0D0" 
+            BorderThickness="0,1,0,0">
+        <DockPanel LastChildFill="False"
+                   Margin="10,5">
+            <!-- Left side: Existing Buttons -->
+            <StackPanel Orientation="Horizontal"
+                        DockPanel.Dock="Left">
+                <Button x:Name="ExitButton" 
+                        Content="Exit Application" 
+                        Width="118"
+                        Style="{StaticResource RedButtonStyle}"
+                        Click="ExitButton_Click"/>
+            </StackPanel>
+
+            <!-- Right side: System Tray-like Elements -->
+            <StackPanel Orientation="Horizontal"
+                        DockPanel.Dock="Right">
+                <!-- Battery -->
+                <TextBlock x:Name="BatteryIcon" 
+                           Text="🔋" 
+                           Style="{StaticResource TrayIconStyle}"/>
+                <TextBlock x:Name="BatteryText" 
+                           Text="100%" 
+                           Style="{StaticResource TrayTextStyle}"/>
+
+                <!-- Wi-Fi -->
+                <TextBlock x:Name="WiFiIcon" 
+                           Text="📶" 
+                           Style="{StaticResource TrayIconStyle}"/>
+                <ComboBox x:Name="WiFiComboBox" 
+                          Width="100" 
+                          Style="{StaticResource TrayComboBoxStyle}"
+                          SelectionChanged="WiFiComboBox_SelectionChanged"
+                          IsEditable="True"
+                          IsReadOnly="True"
+                          Text="No Wi-Fi"
+                          />
+          
+                <!-- Clock -->
+                <StackPanel Orientation="Vertical">
+                    <TextBlock x:Name="ClockTimeText" Text="3:52 PM" TextAlignment="Right"/>
+                    <TextBlock x:Name="ClockDateText" Text="6/16/2025" TextAlignment="Right"/>
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+        </Border>
+</UserControl> 

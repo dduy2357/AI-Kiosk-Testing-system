@@ -1,0 +1,170 @@
+@startuml
+' Google Login System Architecture
+' Focused specifically on Google authentication flow
+
+title Google Login System Architecture
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+' Make diagram larger and more readable
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+' Increase spacing and sizing
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+skinparam enum {
+    BackgroundColor LightCyan
+    BorderColor DarkCyan
+    FontSize 12
+}
+
+' Increase diagram size
+skinparam maxMessageSize 150
+skinparam maxClassSize 200
+skinparam maxPackageSize 300
+
+package "Controllers" {
+    class AuthenController <<Controller>> {
+        + GoogleCallback(request: GoogleAuthRequest): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IAuthenticateService <<Interface>> {
+        + {abstract} LoginByGoogle(input: GoogleUserInfo, campusId: string): Task<(string, LoginResult?)>
+    }
+
+    class AuthenticateService <<Service>> {
+        - _context: DbContext
+        - _mapper: IMapper
+        - _httpContextAccessor: IHttpContextAccessor
+        + LoginByGoogle(input: GoogleUserInfo, campusId: string): Task<(string, LoginResult?)>
+    }
+}
+
+package "Models & DTOs" {
+    class GoogleAuthRequest <<Model>> {
+        + Credential: string
+        + CampusId: string
+    }
+
+    class GoogleUserInfo <<Model>> {
+        + Id: string
+        + Email: string
+        + VerifiedEmail: bool
+        + Name: string
+        + Picture: string
+    }
+
+    class LoginResult <<DTO>> {
+        + AccessToken: string
+        + Data: UserToken
+    }
+
+    class UserToken <<DTO>> {
+        + UserID: string
+        + Email: string
+        + FullName: string
+        + RoleId: List<int>
+    }
+}
+
+package "Entities" {
+    class User <<Entity>> {
+        + UserId: int
+        + Email: string
+        + CampusId: string
+        + GoogleId: string
+        + AvatarUrl: string
+        + FullName: string
+        + LastLogin: DateTime
+        + LastLoginIp: string
+        + Status: int
+    }
+
+    class UserRole <<Entity>> {
+        + UserId: int
+        + RoleId: int
+    }
+}
+
+package "Google Authentication" {
+    class GoogleJsonWebSignature <<External>> {
+        + {static} ValidateAsync(credential: string, settings: ValidationSettings): Task<Payload>
+    }
+
+    class ConfigManager <<Configuration>> {
+        + {static} gI(): ConfigManager
+        + GoogleClientIp: string
+    }
+}
+
+package "Utilities" {
+    class JwtAuthentication <<Utility>> {
+        + {static} GenerateJwtToken(user: UserToken, context: HttpContext): string
+        + {static} ParseJwtToken(token: string): UserToken
+    }
+
+    class Utils <<Utility>> {
+        + {static} GetClientIpAddress(context: HttpContext): string
+        + {static} GetClientIp(): string
+    }
+}
+
+
+' Google Authentication Flow Relationships
+AuthenController ..> IAuthenticateService : <<uses>>
+AuthenController ..> GoogleAuthRequest : <<receives>>
+
+AuthenticateService .up.|> IAuthenticateService
+AuthenticateService ..> GoogleUserInfo : <<processes>>
+AuthenticateService ..> LoginResult : <<creates>>
+AuthenticateService ..> User : <<finds/creates>>
+AuthenticateService ..> UserToken : <<creates>>
+AuthenticateService ..> JwtAuthentication : <<uses>>
+AuthenticateService ..> Utils : <<uses>>
+AuthenticateService ..> UserRole : <<uses>>
+
+' Google Token Validation Flow
+GoogleAuthRequest ..> GoogleJsonWebSignature : <<validates>>
+GoogleJsonWebSignature ..> GoogleUserInfo : <<extracts>>
+ConfigManager ..> GoogleJsonWebSignature : <<provides settings>>
+
+' Data Relationships
+LoginResult "1" o-- "1" UserToken
+User "1" o-- "*" UserRole
+
+' Google User Mapping
+GoogleUserInfo ..> User : <<maps to>>
+
+' IP Address and Role Management
+Utils ..> User : <<updates LastLoginIp>>
+UserRole ..> UserToken : <<provides RoleId>>
+
+
+@enduml 

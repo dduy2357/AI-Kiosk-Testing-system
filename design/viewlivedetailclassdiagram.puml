@@ -1,0 +1,86 @@
+@startuml
+' Simplified View Detail Live Exam Class Diagram
+
+hide empty members
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontSize 14
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam noteFontSize 11
+skinparam noteFontName Arial
+
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    ArrowColor DarkBlue
+    FontSize 12
+}
+
+skinparam package {
+    BackgroundColor LightYellow
+    BorderColor DarkOrange
+    FontSize 14
+    FontStyle bold
+}
+skinparam interface {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+    FontSize 12
+}
+
+title View Detail Live Exam Class Diagram
+
+package "Controllers" {
+    class StudentExamController <<Controller>> {
+        - _studentExamService: IStudentExamService
+        + GetExamDetail(examId: string): Task<IActionResult>
+    }
+}
+
+package "Services" {
+    interface IStudentExamService <<Interface>> {
+        + GetExamDetail(examId: string, usertoken: string): Task<(string, ExamDetailVM?)>
+    }
+    class StudentExamService <<Service>> {
+        - _unitOfWork: IUnitOfWork
+        + GetExamDetail(examId: string, usertoken: string): Task<(string, ExamDetailVM?)>
+    }
+}
+
+package "Repositories" {
+    interface IExamRepository {
+        + GetExamById(examId: string)
+    }
+    interface IRoomRepository {
+        + GetRoomById(roomId: string)
+    }
+}
+
+package "Models & DTOs" {
+    class ExamDetailVM <<DTO>> {
+        + ExamId: string
+        + Title: string
+        + StartTime: DateTime
+        + EndTime: DateTime
+        + Duration: int
+        + Status: int
+        + Room: RoomVM
+    }
+    class RoomVM <<DTO>> {
+        + RoomId: string
+        + RoomName: string
+    }
+}
+
+' Relationships
+StudentExamController ..> IStudentExamService : <<uses>>
+StudentExamController ..> ExamDetailVM : <<uses>>
+IStudentExamService <|.. StudentExamService : <<implements>>
+StudentExamService ..> IExamRepository : <<uses>>
+StudentExamService ..> IRoomRepository : <<uses>>
+StudentExamService ..> ExamDetailVM : <<returns>>
+ExamDetailVM o-- RoomVM : <<contains>>
+
+@enduml
